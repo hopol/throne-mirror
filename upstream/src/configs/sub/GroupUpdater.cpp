@@ -618,10 +618,25 @@ namespace Subscription {
         }
     }
 
+    // fkYAML picks the input encoding from the first four bytes: a NUL among
+    // them makes it decode the whole document as UTF-16/UTF-32, and those
+    // decoders walk the buffer in fixed strides without an end check, so a body
+    // whose length isn't a multiple of the stride reads out of bounds (#1746).
+    // Well-formed UTF-8 with no NUL byte can match neither a UTF-16/32
+    // signature nor a non-UTF-8 BOM, which pins the parser to its UTF-8 path.
+    // NUL is not a legal YAML stream character anyway, so dropping it here
+    // cannot lose anything a conforming subscription could have sent.
+    std::string sanitizeClashYaml(const QString &str) {
+        QString normalized = str;
+        normalized.remove(QChar(QChar::Null));
+        if (normalized.startsWith(QChar(QChar::ByteOrderMark))) normalized.remove(0, 1);
+        return normalized.toStdString(); // toStdString() == toUtf8(): always well-formed
+    }
+
     void RawUpdater::updateClash(const QString& str)
     {
         try {
-            fkyaml::node node = fkyaml::node::deserialize(str.toStdString());
+            fkyaml::node node = fkyaml::node::deserialize(sanitizeClashYaml(str));
             clash::Clash clash_config = node.get_value<clash::Clash>();
     
             for (const auto& out : clash_config.proxies)
@@ -708,9 +723,18 @@ namespace Subscription {
     
                 updated_order += ent;
             }
-        } catch (const fkyaml::exception &ex) {
+        // Hostile subscription bodies reach the parser here, and it can fail with
+        // more than fkyaml::exception (std::bad_alloc / std::length_error from an
+        // oversized allocation, anything a from_node() overload throws), so catch
+        // broadly rather than letting an import take the app down.
+        } catch (const std::exception &ex) {
+            auto msg = QString::fromUtf8(ex.what());
             runOnUiThread([=] {
-                MessageBoxWarning("YAML Exception", ex.what());
+                MessageBoxWarning("YAML Exception", msg);
+            });
+        } catch (...) {
+            runOnUiThread([] {
+                MessageBoxWarning("YAML Exception", QObject::tr("Failed to parse the Clash configuration."));
             });
         }
     }
@@ -804,6 +828,27 @@ namespace Subscription {
         });
     }
 
+    // BatchDeleteProfiles silently keeps the running profile by dropping its id
+    // from the list it was handed; trusting the request duplicates it (#1753).
+    struct DeleteOutcome {
+        bool ok = false;
+        QList<int> deleted;
+        QList<int> kept;
+    };
+
+    DeleteOutcome deleteProfiles(QList<int> ids) {
+        DeleteOutcome outcome;
+        const QSet<int> requested(ids.begin(), ids.end());
+        outcome.ok = Configs::dataManager->profilesRepo->BatchDeleteProfiles(
+            ids, Configs::dataManager->settingsRepo->allow_stopping_active_profile);
+        const QSet<int> deleted(ids.begin(), ids.end());
+        outcome.deleted = std::move(ids);
+        for (int id : requested) {
+            if (!deleted.contains(id)) outcome.kept << id;
+        }
+        return outcome;
+    }
+
     void GroupUpdater::Update(const QString &_str, int _sub_gid, bool _not_sub_as_url, bool showDiff) {
         // 创建 rawUpdater
         Configs::dataManager->settingsRepo->imported_count = 0;
@@ -846,6 +891,8 @@ namespace Subscription {
         // same id with different settings. A running auto selector that built
         // any of them can no longer trust its config.
         QList<int> disturbed;
+        // Only a group that really emptied makes "everything below is new" true.
+        bool cleared = false;
 
         if (group != nullptr) {
             group->sub_last_update = QDateTime::currentMSecsSinceEpoch() / 1000;
@@ -864,14 +911,18 @@ namespace Subscription {
                 for (int id : group->profiles) {
                     if (!stickyIDs.contains(id)) clear_ids << id;
                 }
-                disturbed = clear_ids;
-                if (!Configs::dataManager->profilesRepo->BatchDeleteProfiles(clear_ids, Configs::dataManager->settingsRepo->allow_stopping_active_profile)) {
+                const auto outcome = deleteProfiles(clear_ids);
+                if (!outcome.ok) {
                     runOnUiThread([=] {
                         MessageBoxWarning("Internal Error", "DB Error when deleting profiles, Please try again.");
                     });
                     return;
                 }
-            } else {
+                disturbed = outcome.deleted;
+                // A survivor still belongs to the subscription: fall through to the diff.
+                cleared = outcome.kept.isEmpty();
+            }
+            if (!cleared) {
                 for (const auto &ent : Configs::dataManager->profilesRepo->GetProfileBatch(group->Profiles())) {
                     if (ent != nullptr && !stickyIDs.contains(ent->id)) in << ent;
                 }
@@ -892,7 +943,7 @@ namespace Subscription {
 
             QString change_text;
 
-            if (Configs::dataManager->settingsRepo->sub_clear) {
+            if (cleared) {
                 // all is new profile
                 if (out_all.size() >= 1000) {
                     change_text += "[+] " + Int2String(out_all.size()) + " profiles\n";
@@ -965,6 +1016,7 @@ namespace Subscription {
                 }
 
                 // sort according to order in remote
+                const auto previousOrder = group->profiles;
                 group->profiles.clear();
                 for (const auto &ent: rawUpdater->updated_order) {
                     auto it = supersededBy.find(ent.get());
@@ -986,12 +1038,27 @@ namespace Subscription {
                         del_ids.append(ent->id);
                     }
                 }
-                disturbed << del_ids;
-                if (!Configs::dataManager->profilesRepo->BatchDeleteProfiles(del_ids, Configs::dataManager->settingsRepo->allow_stopping_active_profile)) {
+                const auto outcome = deleteProfiles(del_ids);
+                if (!outcome.ok) {
                     runOnUiThread([=] {
                        MessageBoxWarning("Internal error", "DB Error when deleting profiles, data may be corrupted");
                     });
                 }
+                disturbed << outcome.deleted;
+
+                // Nothing rebuilds group->profiles from the rows; a survivor left
+                // out here is orphaned for good.
+                QString notice_kept;
+                for (int id : outcome.kept) {
+                    if (group->HasProfile(id)) continue;
+                    const auto position = previousOrder.indexOf(id);
+                    group->profiles.insert(position < 0 ? group->profiles.size()
+                                                        : std::min<qsizetype>(position, group->profiles.size()), id);
+                    if (auto ent = Configs::dataManager->profilesRepo->GetProfile(id); ent != nullptr) {
+                        notice_kept += "[=] " + ent->outbound->DisplayTypeAndName() + "\n";
+                    }
+                }
+                if (!outcome.kept.isEmpty()) Configs::dataManager->groupsRepo->Save(group);
 
                 change_text = "\n" + QObject::tr("Added %1 profiles:\n%2\nUpdated %3 profiles:\n%4\nDeleted %5 Profiles:\n%6")
                                          .arg(only_out.length())
@@ -1000,6 +1067,9 @@ namespace Subscription {
                                          .arg(notice_updated)
                                          .arg(only_in.length())
                                          .arg(notice_deleted);
+                if (!notice_kept.isEmpty()) {
+                    change_text += "\n" + QObject::tr("Still in use, so kept instead of deleted:\n%1").arg(notice_kept);
+                }
                 if (only_out.length() + only_in.length() + changed_old.length() == 0) change_text = QObject::tr("Nothing");
             }
 

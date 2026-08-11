@@ -200,7 +200,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     // Listen port if random
     if (Configs::dataManager->settingsRepo->random_inbound_port)
     {
-        Configs::dataManager->settingsRepo->inbound_socks_port = MkPort();
+        Configs::dataManager->settingsRepo->inbound_socks_port = MkPort(Configs::dataManager->settingsRepo->inbound_address);
     }
 
     //init HWID data
@@ -242,6 +242,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         }
         setup_rpc(socket);
         Configs::dataManager->settingsRepo->core_running = true;
+        LOG_INFO(QString("elevated: %1").arg(Configs::IsAdmin() ? "yes" : "no"));
         MW_dialog_message(MwMessage::CoreStarted, {Int2String(profileId)});
     });
 
