@@ -36,6 +36,8 @@ endif ()
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Network LinguistTools ${QT_DBUS_COMPONENT})
 
+include("cmake/nkr.cmake")
+
 #### Platform Variables ####
 if (APPLE)
     include("cmake/macos/macos.cmake")
@@ -65,7 +67,6 @@ message("[CMAKE_FIND_ROOT_PATH] ${CMAKE_FIND_ROOT_PATH}")
 set(BUILD_SHARED_LIBS OFF)
 
 include("cmake/print.cmake")
-include("cmake/nkr.cmake")
 include("cmake/QHotkey.cmake")
 
 find_package(Threads)
@@ -93,6 +94,12 @@ set(PROJECT_SOURCES
         src/global/HTTPRequestHelper.cpp
         src/global/DeviceDetailsHelper.cpp
         src/global/CountryHelper.cpp
+        include/global/OTP.hpp
+        src/global/OTP.cpp
+        include/global/OtpPlaceholder.hpp
+        src/global/OtpPlaceholder.cpp
+        include/global/VpnCredentialOverride.hpp
+        src/global/VpnCredentialOverride.cpp
 
         3rdparty/qrcodegen.cpp
         3rdparty/QtExtKeySequenceEdit.cpp
@@ -133,6 +140,8 @@ set(PROJECT_SOURCES
         include/configs/sub/RouteUpdater.hpp
         src/configs/sub/RouteUpdater.cpp
         src/configs/sub/clash.cpp
+        include/configs/sub/vpnFileImport.hpp
+        src/configs/sub/vpnFileImport.cpp
 
         include/sys/Process.hpp
         src/sys/Process.cpp
@@ -168,6 +177,8 @@ set(PROJECT_SOURCES
         src/ui/widget/StartStopButton.cpp
         include/ui/widget/TrayProfileSelector.hpp
         src/ui/widget/TrayProfileSelector.cpp
+        include/ui/widget/TrayOtpCodes.hpp
+        src/ui/widget/TrayOtpCodes.cpp
         include/ui/utils/DataViewHtmlGenerator.h
         src/ui/utils/DataViewHtmlGenerator.cpp
         include/ui/utils/ProfilesTableModel.h
@@ -179,6 +190,8 @@ set(PROJECT_SOURCES
         include/ui/utils/ProfilesTableVerticalHeader.h
         src/ui/utils/ProfilesTableVerticalHeader.cpp
         include/ui/utils/ProfilesTableFilterHeader.h
+        include/ui/utils/ScreenQrScanner.h
+        src/ui/utils/ScreenQrScanner.cpp
 
         include/ui/profile/dialog_edit_profile.h
         src/ui/profile/dialog_edit_profile.cpp
@@ -252,6 +265,28 @@ set(PROJECT_SOURCES
         src/ui/profile/edit_wireguard.cpp
         include/ui/profile/edit_wireguard.ui
 
+        include/ui/profile/editor_table_utils.h
+
+        include/ui/profile/edit_openvpn.h
+        src/ui/profile/edit_openvpn.cpp
+        include/ui/profile/edit_openvpn.ui
+
+        include/ui/profile/edit_openvpn_advanced.h
+        src/ui/profile/edit_openvpn_advanced.cpp
+        include/ui/profile/edit_openvpn_advanced.ui
+
+        include/ui/profile/edit_openconnect.h
+        src/ui/profile/edit_openconnect.cpp
+        include/ui/profile/edit_openconnect.ui
+
+        include/ui/profile/edit_openconnect_advanced.h
+        src/ui/profile/edit_openconnect_advanced.cpp
+        include/ui/profile/edit_openconnect_advanced.ui
+
+        include/ui/profile/dialog_vpn_auth.h
+        src/ui/profile/dialog_vpn_auth.cpp
+        include/ui/profile/dialog_vpn_auth.ui
+
         src/ui/setting/dialog_basic_settings.cpp
         include/ui/setting/dialog_basic_settings.h
         include/ui/setting/dialog_basic_settings.ui
@@ -268,6 +303,24 @@ set(PROJECT_SOURCES
         include/ui/setting/dialog_vpn_settings.h
         include/ui/setting/dialog_vpn_settings.ui
 
+        src/ui/setting/dialog_preset_settings.cpp
+        include/ui/setting/dialog_preset_settings.h
+        include/ui/setting/dialog_preset_settings.ui
+
+        src/ui/setting/dialog_otp_manager.cpp
+        include/ui/setting/dialog_otp_manager.h
+        include/ui/setting/dialog_otp_manager.ui
+
+        src/ui/setting/dialog_edit_otp.cpp
+        include/ui/setting/dialog_edit_otp.h
+        include/ui/setting/dialog_edit_otp.ui
+
+        src/ui/setting/OtpItem.cpp
+        include/ui/setting/OtpItem.h
+        include/ui/setting/OtpItem.ui
+        src/ui/setting/OtpListWidget.cpp
+        include/ui/setting/OtpListWidget.h
+
         src/ui/stats/dialog_traffic_stats.cpp
         include/ui/stats/dialog_traffic_stats.h
         include/ui/stats/dialog_traffic_stats.ui
@@ -277,6 +330,9 @@ set(PROJECT_SOURCES
         src/ui/stats/dialog_runtime_stats.cpp
         include/ui/stats/dialog_runtime_stats.h
         include/ui/stats/dialog_runtime_stats.ui
+        src/ui/stats/dialog_endpoint_details.cpp
+        include/ui/stats/dialog_endpoint_details.h
+        include/ui/stats/dialog_endpoint_details.ui
         src/ui/stats/MiniChartWidget.cpp
         include/ui/stats/MiniChartWidget.h
 
@@ -357,6 +413,10 @@ set(PROJECT_SOURCES
         src/configs/outbounds/vless.cpp
         src/configs/outbounds/vmess.cpp
         src/configs/outbounds/wireguard.cpp
+        include/configs/outbounds/openvpn.h
+        src/configs/outbounds/openvpn.cpp
+        include/configs/outbounds/openconnect.h
+        src/configs/outbounds/openconnect.cpp
         src/configs/outbounds/custom.cpp
         include/configs/generate.h
         src/configs/generate.cpp
@@ -394,6 +454,7 @@ set(PROJECT_SOURCES
         include/database/ProfilesRepo.h
         include/database/GroupsRepo.h
         include/database/RoutesRepo.h
+        include/database/OtpProfilesRepo.h
         include/database/SettingsRepo.h
         include/database/TrafficStatsRepo.h
 
@@ -401,15 +462,18 @@ set(PROJECT_SOURCES
         include/database/entities/Group.h
         include/database/entities/RouteProfile.h
         include/database/entities/RouteRule.h
+        include/database/entities/OtpProfile.h
 
         src/database/entities/Profile.cpp
         src/database/entities/Group.cpp
         src/database/entities/RouteProfile.cpp
         src/database/entities/RouteRule.cpp
+        src/database/entities/OtpProfile.cpp
 
         src/database/ProfilesRepo.cpp
         src/database/GroupsRepo.cpp
         src/database/RoutesRepo.cpp
+        src/database/OtpProfilesRepo.cpp
         src/database/TrafficStatsRepo.cpp
 
         include/database/DatabaseManager.h

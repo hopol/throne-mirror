@@ -39,6 +39,8 @@ namespace Configs
 
         QList<TrafficChainGroup> chainGroups;
         QList<AutoSelectorBuildInfo> autoSelectors;
+        // Endpoint hop tag -> profile id, so a live status can be named after its profile.
+        QMap<QString, int> vpnEndpointProfiles;
     };
 
     class BuildTestConfigResult {
@@ -88,9 +90,24 @@ namespace Configs
 
     constexpr int warpProfileID = -2408;
 
+    struct PredefinedDNSEntry {
+        QString domain;
+        QStringList v4;
+        QStringList v6;
+    };
+
+    // Hosts-file syntax: "<address> <domain> [domain...]", '#' comments, repeated domains accumulate.
+    bool ParsePredefinedDNS(const QStringList &lines, QList<PredefinedDNSEntry> &out, QString *error = nullptr);
+
+    // sing-box duration grammar: one or more "<number><unit>" with unit ns/us/ms/s/m/h/d.
+    bool IsValidDuration(const QString &text);
+
     std::shared_ptr<BuildConfigResult> BuildSingBoxConfig(const std::shared_ptr<Profile> &ent);
 
     bool IsValid(const std::shared_ptr<Profile> &ent);
+
+    // Eligible: an openvpn/openconnect profile, or a chain whose exit hop is one, never the reverse.
+    bool CanBeAuxEndpoint(const std::shared_ptr<Profile> &ent);
 
     std::shared_ptr<BuildTestConfigResult> BuildTestConfig(const QList<std::shared_ptr<Profile> > &profiles);
 }
