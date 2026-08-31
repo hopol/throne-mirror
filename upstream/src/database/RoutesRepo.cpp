@@ -11,7 +11,6 @@ namespace Configs {
     }
 
     void RoutesRepo::createTables() const {
-        // Create route_profiles table
         db.exec(R"(
             CREATE TABLE IF NOT EXISTS route_profiles (
                 id INTEGER PRIMARY KEY,
@@ -46,7 +45,6 @@ namespace Configs {
         if (!routeProfilesColumnExists("endpoint_profile_ids"))
             db.exec("ALTER TABLE route_profiles ADD COLUMN endpoint_profile_ids TEXT NOT NULL DEFAULT '[]'");
 
-        // Create route_rules table
         db.exec(R"(
             CREATE TABLE IF NOT EXISTS route_rules (
                 route_profile_id INTEGER NOT NULL,
@@ -85,6 +83,8 @@ namespace Configs {
                 strategy TEXT,
                 wifi_ssid_json TEXT,
                 wifi_bssid_json TEXT,
+                tls_spoof TEXT,
+                tls_spoof_method TEXT,
                 PRIMARY KEY (route_profile_id, rule_order),
                 FOREIGN KEY(route_profile_id) REFERENCES route_profiles(id) ON DELETE CASCADE
             )
@@ -93,6 +93,10 @@ namespace Configs {
             db.exec("ALTER TABLE route_rules ADD COLUMN wifi_ssid_json TEXT");
         if (!routeRulesColumnExists("wifi_bssid_json"))
             db.exec("ALTER TABLE route_rules ADD COLUMN wifi_bssid_json TEXT");
+        if (!routeRulesColumnExists("tls_spoof"))
+            db.exec("ALTER TABLE route_rules ADD COLUMN tls_spoof TEXT");
+        if (!routeRulesColumnExists("tls_spoof_method"))
+            db.exec("ALTER TABLE route_rules ADD COLUMN tls_spoof_method TEXT");
     }
 
     bool RoutesRepo::routeRulesColumnExists(const char* columnName) const {
@@ -147,6 +151,8 @@ namespace Configs {
         json["no_drop"] = rule->no_drop;
         json["override_address"] = rule->override_address;
         json["override_port"] = rule->override_port;
+        json["tls_spoof"] = rule->tls_spoof;
+        json["tls_spoof_method"] = rule->tls_spoof_method;
         json["sniffers"] = QListStr2QJsonArray(rule->sniffers);
         json["sniffOverrideDest"] = rule->sniffOverrideDest;
         json["strategy"] = rule->strategy;
@@ -188,6 +194,8 @@ namespace Configs {
         rule->no_drop = json["no_drop"].toBool();
         rule->override_address = json["override_address"].toString();
         rule->override_port = json["override_port"].toString();
+        rule->tls_spoof = json["tls_spoof"].toString();
+        rule->tls_spoof_method = json["tls_spoof_method"].toString();
         rule->sniffers = QJsonArray2QListString(json["sniffers"].toArray());
         rule->sniffOverrideDest = json["sniffOverrideDest"].toBool();
         rule->strategy = json["strategy"].toString();
@@ -239,7 +247,6 @@ namespace Configs {
             if (endpointValue.isDouble()) routeProfile->endpointProfileIDs.append(endpointValue.toInt());
         }
 
-        // Load rules
         if (json.contains("rules") && json["rules"].isArray()) {
             QJsonArray rulesArray = json["rules"].toArray();
             for (const auto& ruleValue : rulesArray) {
@@ -297,10 +304,8 @@ namespace Configs {
 
         db.execThrow("DELETE FROM route_rules WHERE route_profile_id = ?", id);
 
-        // Insert rules
         int ruleOrder = 0;
         for (const auto& rule : routeProfile->Rules) {
-            // Serialize QList<QString> fields to JSON
             QJsonArray inboundArray = QListStr2QJsonArray(rule->inbound);
             QJsonArray domainArray = QListStr2QJsonArray(rule->domain);
             QJsonArray domainSuffixArray = QListStr2QJsonArray(rule->domain_suffix);
@@ -348,8 +353,8 @@ namespace Configs {
                  process_name_json, process_path_json, process_path_regex_json, rule_set_json,
                  invert, outbound_id, action, reject_method, no_drop,
                  override_address, override_port, sniffers_json, sniff_override_dest, strategy,
-                 wifi_ssid_json, wifi_bssid_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 wifi_ssid_json, wifi_bssid_json, tls_spoof, tls_spoof_method)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             )",
                 id,
                 ruleOrder++,
@@ -386,7 +391,9 @@ namespace Configs {
                 rule->sniffOverrideDest ? 1 : 0,
                 rule->strategy.toStdString(),
                 wifiSsidJson.toStdString(),
-                wifiBssidJson.toStdString()
+                wifiBssidJson.toStdString(),
+                rule->tls_spoof.toStdString(),
+                rule->tls_spoof_method.toStdString()
             );
         }
     }
@@ -432,6 +439,8 @@ namespace Configs {
         ruleJson["strategy"] = QString::fromStdString(stmt.getColumn(baseCol + 31).getText());
         ruleJson["wifi_ssid"] = parseJsonArray(stmt.getColumn(baseCol + 32).getText());
         ruleJson["wifi_bssid"] = parseJsonArray(stmt.getColumn(baseCol + 33).getText());
+        ruleJson["tls_spoof"] = QString::fromStdString(stmt.getColumn(baseCol + 34).getText());
+        ruleJson["tls_spoof_method"] = QString::fromStdString(stmt.getColumn(baseCol + 35).getText());
         return ruleJson;
     }
 
@@ -468,7 +477,7 @@ namespace Configs {
             "process_name_json, process_path_json, process_path_regex_json, rule_set_json, "
             "invert, outbound_id, action, reject_method, no_drop, "
             "override_address, override_port, sniffers_json, sniff_override_dest, strategy, "
-            "wifi_ssid_json, wifi_bssid_json "
+            "wifi_ssid_json, wifi_bssid_json, tls_spoof, tls_spoof_method "
             "FROM route_rules WHERE route_profile_id IN (" + idList.toStdString() + ") ORDER BY route_profile_id, rule_order";
         auto rulesQuery = db.query(sql);
         if (!rulesQuery) return;
@@ -501,7 +510,7 @@ namespace Configs {
                    process_name_json, process_path_json, process_path_regex_json, rule_set_json,
                    invert, outbound_id, action, reject_method, no_drop,
                    override_address, override_port, sniffers_json, sniff_override_dest, strategy,
-                   wifi_ssid_json, wifi_bssid_json
+                   wifi_ssid_json, wifi_bssid_json, tls_spoof, tls_spoof_method
             FROM route_rules WHERE route_profile_id = ? ORDER BY rule_order
         )", id);
         if (rulesQuery) {
@@ -637,13 +646,11 @@ namespace Configs {
     }
 
     int RoutesRepo::NewRouteProfileID() const {
-        // Atomically increment and get the new ID (DB atomic, no lock required)
         auto query = db.query("UPDATE entity_ids SET route_profile_last_id = route_profile_last_id + 1 RETURNING route_profile_last_id");
         if (query && query->executeStep()) {
             return query->getColumn(0).getInt();
         }
         
-        // Fallback if RETURNING is not supported (shouldn't happen with modern SQLite)
         return 0;
     }
 
@@ -653,7 +660,7 @@ namespace Configs {
         }
         
         if (routeProfile->id < 0) {
-            return false; // Route profile doesn't have an ID, use AddRouteProfile instead
+            return false;
         }
         
         QMutexLocker locker(&mutex);

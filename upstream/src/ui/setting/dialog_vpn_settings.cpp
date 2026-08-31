@@ -84,8 +84,7 @@ DialogVPNSettings::~DialogVPNSettings() {
 }
 
 void DialogVPNSettings::accept() {
-    //
-    auto mtu = ui->vpn_mtu->currentText().toInt();
+    auto mtu = ui->vpn_mtu->currentText().trimmed().toInt();
     if (mtu > 10000 || mtu < 1000) mtu = 9000;
     const auto tunIPv4CIDR = ui->tun_ipv4_cidr->text().trimmed();
     const auto tunIPv6CIDR = ui->tun_ipv6_cidr->text().trimmed();
@@ -115,7 +114,7 @@ void DialogVPNSettings::accept() {
         privateRanges << range;
     }
 
-    Configs::dataManager->settingsRepo->vpn_implementation = ui->vpn_implementation->currentText();
+    Configs::dataManager->settingsRepo->vpn_implementation = ui->vpn_implementation->currentText().trimmed();
     Configs::dataManager->settingsRepo->vpn_mtu = mtu;
     Configs::dataManager->settingsRepo->vpn_ipv6 = ui->vpn_ipv6->isChecked();
     Configs::dataManager->settingsRepo->vpn_strict_route = ui->strict_route->isChecked();
@@ -126,7 +125,6 @@ void DialogVPNSettings::accept() {
     Configs::dataManager->settingsRepo->vpn_private_ranges = privateRanges;
     Configs::dataManager->settingsRepo->vpn_auto_redirect = ui->auto_redirect->isChecked();
     Configs::dataManager->settingsRepo->vpn_l3_bridge = ui->l3_bridge->isChecked();
-    //
     MW_dialog_message(MwMessage::UpdateSettings, {MwArg::Vpn});
     QDialog::accept();
 }
@@ -152,14 +150,14 @@ void DialogVPNSettings::on_troubleshooting_clicked() {
         QMessageBox::NoButton,
         this
     );
-    msg.addButton(tr("Reset"), QMessageBox::ActionRole);
+    auto reset = msg.addButton(tr("Reset"), QMessageBox::ActionRole);
     auto cancel = msg.addButton(tr("Cancel"), QMessageBox::ActionRole);
 
     msg.setDefaultButton(cancel);
     msg.setEscapeButton(cancel);
 
-    auto r = msg.exec() - 2;
-    if (r == 0) {
-        GetMainWindow()->StopVPNProcess();
+    msg.exec();
+    if (msg.clickedButton() == reset) {
+        GetMainWindow()->RestartCore();
     }
 }

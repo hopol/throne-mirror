@@ -27,10 +27,15 @@ namespace Configs {
             {"mux_default_on",                &mux_default_on},
             {"fragment_default_on",           &fragment_default_on},
             {"tls_tricks_default_on",         &tls_tricks_default_on},
+            {"tls_spoof_default_on",          &tls_spoof_default_on},
+            {"quic_disable_path_mtu_discovery", &quic_disable_path_mtu_discovery},
             {"net_use_proxy",                 &net_use_proxy},
             {"remember_enable",               &remember_enable},
             {"skip_cert",                     &skip_cert},
             {"fakedns",                       &fake_dns},
+            {"fakeip_disable_ipv6",           &fakeip_disable_ipv6},
+            {"direct_dns_disable_ipv6",       &direct_dns_disable_ipv6},
+            {"remote_dns_disable_ipv6",       &remote_dns_disable_ipv6},
             {"disable_traffic_stats",         &disable_traffic_stats},
             {"disable_traffic_aggregation",   &disable_traffic_aggregation},
             {"vpn_ipv6",                      &vpn_ipv6},
@@ -57,6 +62,7 @@ namespace Configs {
             {"adblock_enable",                &adblock_enable},
             {"show_system_dns",               &show_system_dns},
             {"use_custom_icons",              &use_custom_icons},
+            {"follow_status_in_taskbar",           &follow_status_in_taskbar},
             {"xray_mux_default_on",           &xray_mux_default_on},
             {"use_dns_object",                &use_dns_object},
             {"skip_delete_confirmation",      &skip_delete_confirmation},
@@ -79,6 +85,7 @@ namespace Configs {
             {"dns_optimistic", &dns_optimistic},
             {"dns_use_hosts", &dns_use_hosts},
             {"dns_predefined_enable", &dns_predefined_enable},
+            {"connection_sort_asc", &connection_sort_asc},
         };
 
         intMap = {
@@ -92,6 +99,7 @@ namespace Configs {
             {"font_size",              &font_size},
             {"max_log_line",           &max_log_line},
             {"stats_tab",              &stats_tab},
+            {"connection_sort",        &connection_sort},
             {"traffic_stats_retention_days", &traffic_stats_retention_days},
             {"sub_auto_update",        &sub_auto_update},
             {"route_auto_update",      &route_auto_update},
@@ -109,6 +117,8 @@ namespace Configs {
             {"ruleset_mirror",         &ruleset_mirror},
             {"core_dns_in_port",       &core_dns_in_port},
             {"dns_cache_capacity", &dns_cache_capacity},
+            {"h2_max_concurrent_streams", &h2_max_concurrent_streams},
+            {"quic_initial_packet_size", &quic_initial_packet_size},
         };
 
         stringMap = {
@@ -121,6 +131,12 @@ namespace Configs {
             {"fragment_implementation",    &fragment_implementation},
             {"fragment_size",              &fragment_size},
             {"fragment_sleep",             &fragment_sleep},
+            {"tls_spoof",                  &tls_spoof},
+            {"tls_spoof_method",           &tls_spoof_method},
+            {"h2_idle_timeout",            &h2_idle_timeout},
+            {"h2_keep_alive_period",       &h2_keep_alive_period},
+            {"h2_stream_receive_window",   &h2_stream_receive_window},
+            {"h2_connection_receive_window", &h2_connection_receive_window},
             {"theme",                      &theme},
             {"custom_inbound",             &custom_inbound},
             {"custom_route",               &custom_route_global},
@@ -154,9 +170,7 @@ namespace Configs {
             {"xray_geoip_url",             &xray_geoip_url},
             {"xray_geosite_url",           &xray_geosite_url},
             {"remote_dns",                 &remote_dns},
-            {"remote_dns_strategy",        &remote_dns_strategy},
             {"direct_dns",                 &direct_dns},
-            {"direct_dns_strategy",        &direct_dns_strategy},
             {"dns_object",                 &dns_object},
             {"dns_optimistic_timeout",     &dns_optimistic_timeout},
             {"dns_query_timeout",          &dns_query_timeout},
@@ -222,6 +236,15 @@ namespace Configs {
                 xray_vless_preference = static_cast<Xray::XrayVlessPreference>(ok ? v : 0);
                 continue;
             }
+            // Pre-1.14 DNS rule strategies: only the v4-only case survives as a filter, the rest were no-ops.
+            if (key == "direct_dns_strategy") {
+                direct_dns_disable_ipv6 = str == "ipv4_only";
+                continue;
+            }
+            if (key == "remote_dns_strategy") {
+                remote_dns_disable_ipv6 = str == "ipv4_only";
+                continue;
+            }
             if (key == "sub_auto_update_last") {
                 sub_auto_update_last = str.toLongLong();
                 continue;
@@ -256,6 +279,8 @@ namespace Configs {
                 continue;
             }
         }
+        // Nothing writes these back, so drop them or they keep overriding the migrated flags on every load.
+        db.exec("DELETE FROM settings WHERE key IN ('direct_dns_strategy', 'remote_dns_strategy')");
     }
 
     void SettingsRepo::saveAllSettings() const {
@@ -291,8 +316,7 @@ namespace Configs {
         addPair(QStringLiteral("xray_vless_preference"),
             std::to_string(static_cast<int>(xray_vless_preference)));
 
-        // qint64 last-run timestamps for the periodic auto-update jobs (out of range for
-        // the int map, so persisted here alongside the other special cases).
+        // qint64 timestamps: out of range for the int map, so persisted here.
         addPair(QStringLiteral("sub_auto_update_last"),
             std::to_string(sub_auto_update_last));
         addPair(QStringLiteral("route_auto_update_last"),

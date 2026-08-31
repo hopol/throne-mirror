@@ -2,6 +2,7 @@
 
 #include "include/global/CountryHelper.hpp"
 #include "include/global/Configs.hpp"
+#include "include/ui/setting/ThemeManager.hpp"
 
 void DataViewHtmlGenerator::setDownloadReport(const DownloadProgressReport &report, bool show) {
     QMutexLocker lk(&mu_);
@@ -65,8 +66,7 @@ QString DataViewHtmlGenerator::buildHtml() {
     if (latencyTest_.visible) {
         html += latencyTestSectionHtml();
     }
-    // Deliberately last and conditional: the selector panel is ambient status,
-    // so it yields the view entirely whenever a job wants to report progress.
+    // Last and conditional: ambient status yields the view whenever a job wants to report progress.
     if (html.isEmpty() && autoSelector_.visible) {
         html += autoSelectorSectionHtml();
     }
@@ -116,12 +116,12 @@ QString DataViewHtmlGenerator::speedtestSectionHtml() {
         return QString(
            "<p style='text-align:center;margin:0;'>%1</p>"
            "<div style='text-align: center;'>"
-           "<span style='color: #3299FF;'>Dl↓ %2</span>  "
-           "<span style='color: #86C43F;'>Ul↑ %3</span>"
+           "<span style='color: %7;'>Dl↓ %2</span>  "
+           "<span style='color: %8;'>Ul↑ %3</span>"
            "</div>"
            "<p style='text-align:center;margin:0;'>Server: %4%5, %6</p>")
             .arg(firstLine, speedtest_.dlSpeed, speedtest_.ulSpeed, speedtest_.serverCountryFlag, speedtest_.serverCountry,
-                speedtest_.serverName);
+                speedtest_.serverName, themeManager->tokens.info.name(), themeManager->tokens.success.name());
     } else {
         QString res;
         auto content = QString("Running Country Test");

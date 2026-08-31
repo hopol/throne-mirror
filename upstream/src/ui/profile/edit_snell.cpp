@@ -15,8 +15,7 @@ EditSnell::~EditSnell() {
     delete ui;
 }
 
-// Obfuscation is v4-only and the shaping mode is v6-only; the core rejects an
-// outbound carrying the other version's keys, so hide what does not apply.
+// Obfuscation is v4-only and the shaping mode v6-only; the core rejects the other version's keys.
 void EditSnell::applyVersion() {
     const bool v6 = ui->version->currentText() == "6";
     ui->obfs_mode_l->setVisible(!v6);
@@ -46,13 +45,13 @@ void EditSnell::onStart(std::shared_ptr<Configs::Profile> _ent) {
 bool EditSnell::onEnd() {
     auto outbound = this->ent->Snell();
 
-    outbound->version = ui->version->currentText().toInt();
+    outbound->version = ui->version->currentText().trimmed().toInt();
     outbound->psk = ui->psk->text();
     outbound->userkey = ui->userkey->text();
-    outbound->network = ui->network->currentText();
-    outbound->obfs_mode = ui->obfs_mode->currentText();
-    outbound->obfs_host = ui->obfs_host->text();
-    outbound->mode = ui->mode->currentText();
+    outbound->network = ui->network->currentText().trimmed();
+    outbound->obfs_mode = ui->obfs_mode->currentText().trimmed();
+    outbound->obfs_host = ui->obfs_host->text().trimmed();
+    outbound->mode = ui->mode->currentText().trimmed();
     outbound->reuse = ui->reuse->isChecked();
 
     return true;

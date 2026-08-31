@@ -29,6 +29,8 @@
 #include <QKeySequence>
 #include <QSet>
 #include <QHash>
+#include <QIcon>
+#include <QToolButton>
 #include <QCheckBox>
 #include <QSemaphore>
 #include <QMutex>
@@ -87,10 +89,9 @@ public:
     qint64 GetCorePid();
     QString GetRunningConfigName();
 
-    // Blocking RPC; never call from the UI thread.
+    // The two live VPN queries below block on an RPC; never call them from the UI thread.
     static QString liveVpnConnectOkText();
 
-    // Blocking RPC; never call from the UI thread. Empty unless the exit hop is an endpoint.
     static QString liveVpnStateText(bool *connected = nullptr);
 
     void prepare_exit();
@@ -125,6 +126,8 @@ public:
     void RegisterHotkey(bool unregister);
 
     bool StopVPNProcess();
+
+    void RestartCore();
 
     void UpdateConnectionList(const QMap<QString, Stats::ConnectionMetadata>& toUpdate, const QMap<QString, Stats::ConnectionMetadata>& toAdd);
 
@@ -221,24 +224,20 @@ private:
 
     ProfilesFilterProxyModel *profilesFilterModel = nullptr;
     QSystemTrayIcon *tray;
-    QMenu *trayMenu = nullptr;    // tray context menu
+    QMenu *trayMenu = nullptr;
     QPointer<TrayProfileSelector> traySelector;
     void openTraySelector(bool routing);
     QPointer<TrayOtpCodes> trayOtpCodes;
     void openTrayOtpCodes();
     QShortcut *shortcut_esc = new QShortcut(QKeySequence::Cancel, this);
-    //
     QThreadPool *parallelCoreCallPool = new QThreadPool(this);
     std::unique_ptr<TestRunner> testRunner;
-    //
     Configs_sys::CoreProcess *core_process = nullptr;
     QMutex coreProcessMutex;
     QLocalServer *core_server = nullptr;
     bool rpc_started = false;
     qint64 vpn_pid = 0;
-    //
     QTextDocument *qvLogDocument = new QTextDocument(this);
-    //
     QString title_error;
     int icon_status = -1;
     std::shared_ptr<Configs::Profile> running;
@@ -248,31 +247,26 @@ private:
     bool m_xrayGeoAssetBusy = false;
     QString traffic_update_cache;
     qint64 last_test_time = 0;
-    //
     int proxy_last_order = -1;
     bool select_mode = false;
     QMutex mu_starting;
     QMutex mu_stopping;
     QMutex mu_exit;
     ExitReason exit_reason = ExitReason::None;
-    //
     QMutex mu_download_update;
     QMutex mu_download_dashboard;
-    //
     QMutex connectionListMu;
-    //
+    class ConnectionsFilterHeader *connectionFilterHeader = nullptr;
+    QTimer *connectionFilterDebounce = nullptr;
+    QToolButton *connectionCloseAllButton = nullptr;
+    QIcon connectionCloseIcon;
     int toolTipID;
-    //
     SpeedWidget *speedChartWidget;
-    //
-    // for data view
     std::atomic<qint64> lastUpdatedMs = QDateTime::currentMSecsSinceEpoch();
     DataViewHtmlGenerator dataViewHtmlGenerator_;
 
-    // shortcuts
     QList<QShortcut*> hiddenMenuShortcuts;
 
-    // search
     QString addressFilterString;
     QString nameFilterString;
     QString typeFilterString;
@@ -283,7 +277,6 @@ private:
     bool m_profilesTableHadFocus = false;
     int m_profilesScrollValue = 0;
 
-    // log
     QStringList includeKeywords;
     QStringList excludeKeywords;
     QRegularExpression includeCombined;
@@ -391,8 +384,6 @@ private:
 
     bool m_adjustingColumns = false;
 
-    //
-
     void HotkeyEvent(const QString &key);
 
     void RegisterHiddenMenuShortcuts(bool unregister = false);
@@ -404,8 +395,6 @@ private:
     QList<QAction*> getActionsForShortcut();
 
     void loadShortcuts();
-
-    // rpc
 
     void setup_rpc(QLocalSocket *socket);
 
@@ -423,9 +412,6 @@ private:
 
     void url_test_current();
 
-    // vpn endpoints
-
-    // The hop the "proxy" tag lands on, or null when it is not an endpoint.
     static std::shared_ptr<Configs::Profile> vpn_exit_endpoint(const std::shared_ptr<Configs::Profile> &ent);
 
     static QString vpn_state_text(const QString &state, const QString &error);
@@ -438,7 +424,6 @@ private:
 
     void show_vpn_challenge(const VpnAuthChallenge &challenge);
 
-    // No challenge is pending: the core never prompts for config-supplied credentials.
     void show_vpn_auth_failure(const QString &endpointTag, const QString &error);
 
     void clear_vpn_credential_overrides();
@@ -464,6 +449,27 @@ private:
 
     void setupConnectionSortMenu();
 
+    void setupConnectionFilter();
+
+    void restoreConnectionSort();
+
+    void applyConnectionSort(Stats::ConnectionSort sort);
+
+    void applyConnectionFilters();
+
+    void buildConnectionRow(int row);
+
+    void fillConnectionRow(int row, const Stats::ConnectionMetadata &conn);
+
+    void resizeConnectionRows(int count);
+
+    // Rows are rewritten on every poll, so ids are read at click time, never captured.
+    void closeConnections(const QStringList &ids);
+
+    QStringList listedConnectionIds() const;
+
+    void refreshConnectionCloseIcons();
+
     friend class TestRunner;
 
 protected:
@@ -479,9 +485,6 @@ inline MainWindow *GetMainWindow() {
 void UI_InitMainWindow();
 
 #ifdef Q_OS_LINUX
-/*
- * Proxy class for interface org.freedesktop.portal.Request
- */
 class OrgFreedesktopPortalRequestInterface : public QDBusAbstractInterface
 {
     Q_OBJECT
@@ -500,7 +503,7 @@ public Q_SLOTS:
         return asyncCallWithArgumentList(QStringLiteral("Close"), argumentList);
     }
 
-Q_SIGNALS: // SIGNALS
+Q_SIGNALS:
     void Response(uint response, QVariantMap results);
 };
 

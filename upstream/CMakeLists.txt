@@ -107,10 +107,6 @@ set(PROJECT_SOURCES
 
         3rdparty/qv2ray/v2/ui/LogHighlighter.cpp
         3rdparty/qv2ray/v2/ui/QvAutoCompleteTextEdit.cpp
-        3rdparty/qv2ray/v2/ui/widgets/common/QJsonModel.cpp
-        3rdparty/qv2ray/v2/ui/widgets/editors/w_JsonEditor.cpp
-        3rdparty/qv2ray/v2/ui/widgets/editors/w_JsonEditor.hpp
-        3rdparty/qv2ray/v2/ui/widgets/editors/w_JsonEditor.ui
         3rdparty/qv2ray/v2/ui/widgets/speedchart/SpeedWidget.cpp
         3rdparty/qv2ray/v2/ui/widgets/speedchart/SpeedWidget.hpp
         3rdparty/qv2ray/v2/proxy/QvProxyConfigurator.cpp
@@ -179,6 +175,19 @@ set(PROJECT_SOURCES
         src/ui/widget/TrayProfileSelector.cpp
         include/ui/widget/TrayOtpCodes.hpp
         src/ui/widget/TrayOtpCodes.cpp
+        include/ui/widget/json/JsonTree.h
+        src/ui/widget/json/JsonTree.cpp
+        include/ui/widget/json/JsonValidator.h
+        include/ui/widget/json/JsonSchemaValidator.h
+        src/ui/widget/json/JsonSchemaValidator.cpp
+        include/ui/widget/json/SchemaStore.h
+        src/ui/widget/json/SchemaStore.cpp
+        include/ui/widget/json/JsonCodeEdit.h
+        src/ui/widget/json/JsonCodeEdit.cpp
+        include/ui/widget/json/JsonIssueList.h
+        src/ui/widget/json/JsonIssueList.cpp
+        include/ui/widget/json/JsonEditorDialog.h
+        src/ui/widget/json/JsonEditorDialog.cpp
         include/ui/utils/DataViewHtmlGenerator.h
         src/ui/utils/DataViewHtmlGenerator.cpp
         include/ui/utils/ProfilesTableModel.h
@@ -190,6 +199,7 @@ set(PROJECT_SOURCES
         include/ui/utils/ProfilesTableVerticalHeader.h
         src/ui/utils/ProfilesTableVerticalHeader.cpp
         include/ui/utils/ProfilesTableFilterHeader.h
+        include/ui/utils/ConnectionsFilterHeader.h
         include/ui/utils/ScreenQrScanner.h
         src/ui/utils/ScreenQrScanner.cpp
 
@@ -240,6 +250,9 @@ set(PROJECT_SOURCES
         include/ui/profile/edit_hysteria.h
         src/ui/profile/edit_hysteria.cpp
         include/ui/profile/edit_hysteria.ui
+        include/ui/profile/edit_hysteria_realm.h
+        src/ui/profile/edit_hysteria_realm.cpp
+        include/ui/profile/edit_hysteria_realm.ui
         include/ui/profile/edit_tuic.h
         src/ui/profile/edit_tuic.cpp
         include/ui/profile/edit_tuic.ui
@@ -369,6 +382,7 @@ set(PROJECT_SOURCES
         include/sys/windows/eventHandler.h
         include/configs/baseConfig.h
         include/configs/common/DialFields.h
+        include/configs/common/QUICFields.h
         include/configs/common/TLS.h
         include/configs/common/multiplex.h
         include/configs/common/transport.h
@@ -377,6 +391,7 @@ set(PROJECT_SOURCES
 
         # common impl
         src/configs/common/DialFields.cpp
+        src/configs/common/QUICFields.cpp
         src/configs/common/TLS.cpp
         src/configs/common/multiplex.cpp
         src/configs/common/transport.cpp
@@ -545,8 +560,11 @@ set_target_properties(Throne PROPERTIES
         MACOSX_BUNDLE_GUI_IDENTIFIER moe.Throne.macosx
         MACOSX_BUNDLE TRUE
         WIN32_EXECUTABLE TRUE
-        UNITY_BUILD ON
 )
+
+if (WIN32 AND MSVC)
+    set_target_properties(Throne PROPERTIES UNITY_BUILD ON)
+endif ()
 set_property(SOURCE "3rdparty/SQLiteCpp/src/sqlite3.c" PROPERTY SKIP_UNITY_BUILD_INCLUSION ON)
 
 # Verified to link. OMIT_VIRTUALTABLE/VIEW/ANALYZE/CTE/WINDOWFUNC/DECLTYPE all break this build.

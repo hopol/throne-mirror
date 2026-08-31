@@ -829,9 +829,7 @@ namespace Configs {
     QString xrayStreamSetting::ExportToLink() {
         QUrlQuery query;
         if (!network.isEmpty()) query.addQueryItem("type", network == "raw" ? "tcp" : network);
-        // value(), never operator[]: the mutable QJsonObject::operator[] inserts a null
-        // entry for a missing key, which would leave "header": null behind in rawSettings
-        // and end up in the generated Xray config
+        // value(), never operator[]: the mutable operator[] inserts a null entry for a missing key.
         if (const auto header = rawSettings.value("header").toObject();
             network == "raw" && header.value("type").toString() == "http") {
             query.addQueryItem("headerType", "http");
@@ -871,8 +869,7 @@ namespace Configs {
         QJsonObject object;
         object["network"] = network;
         object["security"] = security;
-        // no rawSettings here: identity matches a profile across a subscription update,
-        // so it must not carry values the subscription rotates (Host header, paths)
+        // No rawSettings: identity must not carry values a subscription rotates (Host header, paths).
         if (security == "reality") {
             if (!reality->serverName.isEmpty()) object["sni"] = reality->serverName;
             if (!reality->fingerprint.isEmpty()) object["fingerprint"] = reality->fingerprint;
@@ -884,19 +881,27 @@ namespace Configs {
     }
 
 
+    QString getDirectDomainStrategy() {
+        const auto &settings = *Configs::dataManager->settingsRepo;
+        // No DNS rule blanks AAAA for these lookups any more, so the switch caps the strategy instead.
+        if (settings.direct_dns_disable_ipv6 && !settings.use_dns_object) return "ipv4_only";
+        return settings.default_domain_strategy;
+    }
+
     QString getXrayOutboundDomainStrategy() {
-        auto strategy = Configs::dataManager->settingsRepo->direct_dns_strategy;
+        const auto strategy = getDirectDomainStrategy();
         if (strategy == "prefer_ipv4") return "UseIPv4v6";
         if (strategy == "prefer_ipv6") return "UseIPv6v4";
-        if (strategy == "ipv4_only") return "ForceIPv4";
         if (strategy == "ipv6_only") return "ForceIPv6";
+        // The cap narrows the family; it must not also make resolution mandatory.
+        if (strategy == "ipv4_only") {
+            return Configs::dataManager->settingsRepo->default_domain_strategy == "ipv4_only" ? "ForceIPv4" : "UseIPv4";
+        }
         return "UseIP";
     }
 
     BuildResult xrayStreamSetting::Build() {
-        // Egress interface binding and outbound domain resolution are wired onto
-        // the Xray instance after creation (ThroneWiring), not baked into the
-        // config, so no sockopt is emitted here.
+        // Interface binding and domain resolution are wired on at instance creation (ThroneWiring), not here.
         return {ExportToJson(), ""};
     }
 }

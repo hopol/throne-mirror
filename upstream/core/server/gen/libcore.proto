@@ -12,6 +12,7 @@ service LibcoreService {
   rpc QueryURLTest(EmptyReq) returns (QueryURLTestResponse);
   rpc QueryStats(EmptyReq) returns (QueryStatsResp);
   rpc QueryConnections(EmptyReq) returns (QueryConnectionsResp);
+  rpc CloseConnections(CloseConnectionsRequest) returns (CloseConnectionsResponse);
   //
   rpc SetSystemDNS(SetSystemDNSRequest) returns (EmptyResp);
   //
@@ -56,12 +57,9 @@ message LoadConfigReq {
   optional bool need_xray = 9 [default = false];
   optional string xray_config = 10 [default = ""];
   optional string tun_ipv4_cidr = 11 [default = ""];
-  // Address of sing-box's loopback DNS-in (e.g. "127.0.0.1:15353") used by the
-  // live Xray instance to resolve outbound server domains. Empty => no outbound
-  // DNS wiring (test/validation fallback).
-  optional string xray_outbound_dns_address = 12 [default = ""];
-  // Xray-style domain strategy (e.g. "UseIP", "UseIPv4v6") applied to outbound
-  // domain resolution when xray_outbound_dns_address is set.
+  reserved 12;
+  reserved "xray_outbound_dns_address";
+  // Xray-style strategy (e.g. "UseIP") for resolution through the box's dns-direct transport; empty => unwired.
   optional string xray_outbound_dns_strategy = 13 [default = ""];
   // Keep the Xray instance cold until something dials it. Set for auto-selector
   // profiles, whose pools can hold Xray members that only get probed once a
@@ -101,6 +99,10 @@ message TestReq {
   repeated string vpn_endpoint_tags = 11;
   // Bounded wait for those tags to leave `connecting`; 0 picks the core default.
   optional int32 vpn_status_timeout_ms = 12 [default = 0];
+  reserved 13;
+  reserved "xray_outbound_dns_address";
+  // See LoadConfigReq; empty leaves the Xray on the OS resolver, which a running TUN owns.
+  optional string xray_outbound_dns_strategy = 14 [default = ""];
 }
 
 message TestResp {
@@ -220,6 +222,17 @@ message ConnectionMetaData {
   optional int64 closed_at = 13 [default = 0];       // 0 while live
 }
 
+// Ids come from a previous QueryConnections; ones that already closed are a
+// no-op, so a stale table never turns into an error.
+message CloseConnectionsRequest {
+  repeated string ids = 1;
+}
+
+message CloseConnectionsResponse {
+  optional int32 closed = 1 [default = 0];
+  optional string error = 2 [default = ""];
+}
+
 message SetSystemDNSRequest {
   optional bool clear = 1 [default = false];
 }
@@ -249,6 +262,10 @@ message SpeedTestRequest {
   optional string xray_config = 13 [default = ""];
   // See TestReq.xray_full_configs.
   repeated string xray_full_configs = 14;
+  reserved 15;
+  reserved "xray_outbound_dns_address";
+  // See TestReq.xray_outbound_dns_strategy.
+  optional string xray_outbound_dns_strategy = 16 [default = ""];
 }
 
 message SpeedTestResult {
@@ -298,6 +315,10 @@ message IPTestRequest {
   optional string xray_config = 7 [default = ""];
   // See TestReq.xray_full_configs.
   repeated string xray_full_configs = 8;
+  reserved 9;
+  reserved "xray_outbound_dns_address";
+  // See TestReq.xray_outbound_dns_strategy.
+  optional string xray_outbound_dns_strategy = 10 [default = ""];
 }
 
 message IPTestResp {

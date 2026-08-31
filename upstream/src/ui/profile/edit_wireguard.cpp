@@ -9,9 +9,7 @@ EditWireguard::EditWireguard(QWidget *parent) : QWidget(parent), ui(new Ui::Edit
 
     connect(ui->warp_autogen, &QPushButton::clicked, this, [=, this] {
         auto originalText = ui->warp_autogen->text();
-        // genWarpConfig blocks on a nested event loop, so the button stays
-        // clickable while the request is in flight; disable it to avoid firing
-        // a second request on a double click.
+        // genWarpConfig spins a nested event loop, so the button stays clickable through the request.
         ui->warp_autogen->setEnabled(false);
         ui->warp_autogen->setText(tr("Getting keypair..."));
         bool ok;
@@ -36,8 +34,7 @@ EditWireguard::EditWireguard(QWidget *parent) : QWidget(parent), ui(new Ui::Edit
         ui->local_addr->setText(conf->ipv4Address + "/32," + conf->ipv6Address + "/128");
         ui->mtu->setText("1280");
         ui->persistent_keepalive->setText("30");
-        // The endpoint (host:port) lives in the outer profile dialog's
-        // address/port fields, reached through the editor hooks.
+        // The endpoint lives in the outer profile dialog's address/port fields.
         if (auto sep = conf->endpoint.lastIndexOf(':'); sep > 0) {
             if (set_edit_text_serverAddress) set_edit_text_serverAddress(conf->endpoint.left(sep));
             if (set_edit_text_serverPort) set_edit_text_serverPort(conf->endpoint.mid(sep + 1));
@@ -97,14 +94,16 @@ void EditWireguard::onStart(std::shared_ptr<Configs::Profile> _ent) {
     ui->reject_after_time->setText(outbound->reject_after_time);
     ui->keepalive_timeout->setText(outbound->keepalive_timeout);
     ui->max_handshake_attempts->setText(outbound->max_handshake_attempts);
+    ui->random_trailers->setChecked(outbound->random_trailers);
+    ui->disable_cookies->setChecked(outbound->disable_cookies);
 }
 
 bool EditWireguard::onEnd() {
     auto outbound = this->ent->Wireguard();
 
-    outbound->private_key = ui->private_key->text();
-    outbound->peer->public_key = ui->public_key->text();
-    outbound->peer->pre_shared_key = ui->preshared_key->text();
+    outbound->private_key = ui->private_key->text().trimmed();
+    outbound->peer->public_key = ui->public_key->text().trimmed();
+    outbound->peer->pre_shared_key = ui->preshared_key->text().trimmed();
     auto rawReserved = ui->reserved->text();
     outbound->peer->reserved = {};
     for (const auto& item: rawReserved.split(",")) {
@@ -112,28 +111,28 @@ bool EditWireguard::onEnd() {
         outbound->peer->reserved += item.trimmed().toInt();
     }
     outbound->peer->persistent_keepalive = ui->persistent_keepalive->text().trimmed();
-    outbound->mtu = ui->mtu->text().toInt();
+    outbound->mtu = ui->mtu->text().trimmed().toInt();
     outbound->system = ui->sys_ifc->isChecked();
     outbound->address = ui->local_addr->text().replace(" ", "").split(",");
-    outbound->worker_count = ui->workers->text().toInt();
+    outbound->worker_count = ui->workers->text().trimmed().toInt();
 
     outbound->enable_amnezia = ui->enable_amnezia->isChecked();
-    outbound->jc = ui->jc->text().toInt();
-    outbound->jmin = ui->jmin->text().toInt();
-    outbound->jmax = ui->jmax->text().toInt();
-    outbound->s1 = ui->s1->text().toInt();
-    outbound->s2 = ui->s2->text().toInt();
-    outbound->s3 = ui->s3->text().toInt();
-    outbound->s4 = ui->s4->text().toInt();
-    outbound->h1 = ui->h1->text();
-    outbound->h2 = ui->h2->text();
-    outbound->h3 = ui->h3->text();
-    outbound->h4 = ui->h4->text();
-    outbound->i1 = ui->i1->text();
-    outbound->i2 = ui->i2->text();
-    outbound->i3 = ui->i3->text();
-    outbound->i4 = ui->i4->text();
-    outbound->i5 = ui->i5->text();
+    outbound->jc = ui->jc->text().trimmed().toInt();
+    outbound->jmin = ui->jmin->text().trimmed().toInt();
+    outbound->jmax = ui->jmax->text().trimmed().toInt();
+    outbound->s1 = ui->s1->text().trimmed().toInt();
+    outbound->s2 = ui->s2->text().trimmed().toInt();
+    outbound->s3 = ui->s3->text().trimmed().toInt();
+    outbound->s4 = ui->s4->text().trimmed().toInt();
+    outbound->h1 = ui->h1->text().trimmed();
+    outbound->h2 = ui->h2->text().trimmed();
+    outbound->h3 = ui->h3->text().trimmed();
+    outbound->h4 = ui->h4->text().trimmed();
+    outbound->i1 = ui->i1->text().trimmed();
+    outbound->i2 = ui->i2->text().trimmed();
+    outbound->i3 = ui->i3->text().trimmed();
+    outbound->i4 = ui->i4->text().trimmed();
+    outbound->i5 = ui->i5->text().trimmed();
     outbound->header_protection_key = ui->header_protection_key->text().trimmed();
     outbound->content_padding_addition = ui->content_padding_addition->text().trimmed();
     outbound->rekey_after_time = ui->rekey_after_time->text().trimmed();
@@ -141,6 +140,8 @@ bool EditWireguard::onEnd() {
     outbound->reject_after_time = ui->reject_after_time->text().trimmed();
     outbound->keepalive_timeout = ui->keepalive_timeout->text().trimmed();
     outbound->max_handshake_attempts = ui->max_handshake_attempts->text().trimmed();
+    outbound->random_trailers = ui->random_trailers->isChecked();
+    outbound->disable_cookies = ui->disable_cookies->isChecked();
 
     return true;
 }
