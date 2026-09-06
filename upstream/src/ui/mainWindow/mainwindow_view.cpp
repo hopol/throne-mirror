@@ -12,12 +12,22 @@
 #include "include/database/ProfilesRepo.h"
 #include "include/database/RoutesRepo.h"
 #include "include/database/SettingsRepo.h"
+#include "include/global/LocalNetwork.hpp"
 #include "include/stats/autoselector/AutoSelectorMonitor.hpp"
 #include "include/ui/setting/Icon.hpp"
 #include "include/ui/stats/dialog_auto_selector.h"
 #include "include/ui/utils/ProfilesTableFilterHeader.h"
 #include "include/ui/utils/ProfilesTableModel.h"
 #include "include/ui/widget/StartStopButton.hpp"
+
+// Language setting -> locale, mirroring the switch in main.cpp; 0 follows the system locale.
+// QLocale() alone is not enough: explicit English leaves the default locale on the system one.
+bool MainWindow::usesTightLabels() const {
+    static const QStringList byLanguageSetting = {"", "en", "zh_CN", "fa_IR", "ru_RU"};
+    const int language = Configs::dataManager->settingsRepo->language;
+    const QString locale = language == 0 ? QLocale().name() : byLanguageSetting.value(language);
+    return locale.startsWith("zh") || locale.startsWith("ru");
+}
 
 void MainWindow::applyTopBarMetrics() {
     const QList<QToolButton*> menuButtons = {
@@ -32,6 +42,14 @@ void MainWindow::applyTopBarMetrics() {
     for (auto* b : menuButtons) {
         b->ensurePolished();
         uniformButtonWidth = qMax(uniformButtonWidth, b->sizeHint().width());
+    }
+
+    // QToolButton's only slack is one space advance per side, which is clearance for Latin ink but
+    // not for CJK glyphs that fill their advance box, nor for RU labels long enough to sit at that
+    // bound on every button at once -- both run into the chevron. Buy those locales a second space
+    // advance per side rather than widening all five in every language (#1665, #1829).
+    if (usesTightLabels()) {
+        uniformButtonWidth += 2 * fontMetrics().horizontalAdvance(' ');
     }
     for (auto* b : menuButtons) b->setMinimumWidth(uniformButtonWidth);
 
@@ -138,10 +156,19 @@ void MainWindow::refresh_status(const QString &traffic_update) {
         }
         ui->label_running->setText(runningLabelText);
     }
-    const auto display_socks = DisplayAddress(settings->inbound_address, settings->inbound_socks_port);
     const auto inbound_disabled = settings->disable_mixed_inbound;
-    const auto inbound_txt = QString("Mixed: %1").arg(inbound_disabled ? "Disabled" : display_socks);
-    ui->label_inbound->setText(inbound_txt);
+    auto display_socks = DisplayAddress(settings->inbound_address, settings->inbound_socks_port);
+    QString inbound_tip;
+    // A wildcard bind is not something a LAN client can dial, so show the interface it actually reaches instead.
+    if (!inbound_disabled && LocalNetwork::LanInboundIsWildcard()) {
+        if (const auto lan = LocalNetwork::LanAddress(); !lan.isEmpty()) {
+            inbound_tip = tr("Listening on all interfaces (%1)").arg(display_socks);
+            display_socks = DisplayAddress(lan, settings->inbound_socks_port);
+        }
+    }
+    ui->label_inbound->setText(QString("Mixed: %1").arg(inbound_disabled ? "Disabled" : display_socks));
+    ui->label_inbound->setToolTip(inbound_tip);
+    syncConnectionSourceColumn();
     ui->checkBox_VPN->setChecked(settings->spmode_vpn);
     ui->checkBox_SystemProxy->setChecked(settings->spmode_system_proxy);
     if (select_mode) {
@@ -176,19 +203,19 @@ void MainWindow::refresh_status(const QString &traffic_update) {
         return tt.join(isTray ? "\n" : " ");
     };
 
-    auto icon_status_new = Icon::NONE;
+    auto icon_status_new = Icon::TrayIconStatus::None;
 
     if (running != nullptr) {
         if (settings->spmode_vpn) {
-            icon_status_new = Icon::VPN;
+            icon_status_new = Icon::TrayIconStatus::Vpn;
         } else if (settings->system_dns_set && settings->spmode_system_proxy) {
-            icon_status_new = Icon::SYSTEM_PROXY_DNS;
+            icon_status_new = Icon::TrayIconStatus::SystemProxyDns;
         } else if (settings->system_dns_set) {
-            icon_status_new = Icon::DNS;
+            icon_status_new = Icon::TrayIconStatus::Dns;
         } else if (settings->spmode_system_proxy) {
-            icon_status_new = Icon::SYSTEM_PROXY;
+            icon_status_new = Icon::TrayIconStatus::SystemProxy;
         } else {
-            icon_status_new = Icon::RUNNING;
+            icon_status_new = Icon::TrayIconStatus::Running;
         }
     }
 

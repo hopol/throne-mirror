@@ -94,6 +94,8 @@ set(PROJECT_SOURCES
         src/global/HTTPRequestHelper.cpp
         src/global/DeviceDetailsHelper.cpp
         src/global/CountryHelper.cpp
+        include/global/LocalNetwork.hpp
+        src/global/LocalNetwork.cpp
         include/global/OTP.hpp
         src/global/OTP.cpp
         include/global/OtpPlaceholder.hpp
@@ -133,6 +135,11 @@ set(PROJECT_SOURCES
 
         include/configs/sub/GroupUpdater.hpp
         src/configs/sub/GroupUpdater.cpp
+        include/configs/sub/SubscriptionScan.hpp
+        include/configs/sub/SubscriptionParser.hpp
+        src/configs/sub/SubscriptionParser.cpp
+        include/configs/sub/SubscriptionReconcile.hpp
+        src/configs/sub/SubscriptionReconcile.cpp
         include/configs/sub/RouteUpdater.hpp
         src/configs/sub/RouteUpdater.cpp
         src/configs/sub/clash.cpp
@@ -171,6 +178,8 @@ set(PROJECT_SOURCES
         include/ui/mainwindow.ui
         include/ui/widget/StartStopButton.hpp
         src/ui/widget/StartStopButton.cpp
+        include/ui/widget/TrayPopupFrame.hpp
+        src/ui/widget/TrayPopupFrame.cpp
         include/ui/widget/TrayProfileSelector.hpp
         src/ui/widget/TrayProfileSelector.cpp
         include/ui/widget/TrayOtpCodes.hpp
@@ -200,6 +209,12 @@ set(PROJECT_SOURCES
         src/ui/utils/ProfilesTableVerticalHeader.cpp
         include/ui/utils/ProfilesTableFilterHeader.h
         include/ui/utils/ConnectionsFilterHeader.h
+        include/ui/utils/ConnectionsTableModel.h
+        src/ui/utils/ConnectionsTableModel.cpp
+        include/ui/utils/ConnectionsFilterProxyModel.h
+        src/ui/utils/ConnectionsFilterProxyModel.cpp
+        include/ui/utils/ConnectionCloseDelegate.h
+        src/ui/utils/ConnectionCloseDelegate.cpp
         include/ui/utils/ScreenQrScanner.h
         src/ui/utils/ScreenQrScanner.cpp
 

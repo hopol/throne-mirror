@@ -16,6 +16,7 @@
 
 #ifndef MW_INTERFACE
 
+#include <optional>
 #include <QKeyEvent>
 #include <QSystemTrayIcon>
 #include <QPointer>
@@ -30,6 +31,7 @@
 #include <QSet>
 #include <QHash>
 #include <QIcon>
+#include <QPixmap>
 #include <QToolButton>
 #include <QCheckBox>
 #include <QSemaphore>
@@ -40,6 +42,7 @@
 
 #include "group/GroupSort.hpp"
 #include "include/global/GuiUtils.hpp"
+#include "include/ui/setting/Icon.hpp"
 #include "include/ui/utils/DataViewHtmlGenerator.h"
 #include "include/ui/utils/ProfilesFilterProxyModel.h"
 #include "include/ui/utils/ProfilesTableModel.h"
@@ -56,6 +59,14 @@ class TrayOtpCodes;
 class TestRunner;
 class DialogVpnAuth;
 struct VpnAuthChallenge;
+
+struct VpnEndpointState {
+    QString tag;
+    QString state;
+    QString error;
+    bool connected = false;
+    bool authFailed = false;
+};
 
 namespace Qv2ray::ui { class SyntaxHighlighter; }
 
@@ -101,6 +112,8 @@ public:
 
     void show_group(int gid);
 
+    void show_group_tab_menu(const QPoint &tabBarPos);
+
     void refresh_groups();
 
     void refresh_status(const QString &traffic_update = "");
@@ -129,9 +142,8 @@ public:
 
     void RestartCore();
 
-    void UpdateConnectionList(const QMap<QString, Stats::ConnectionMetadata>& toUpdate, const QMap<QString, Stats::ConnectionMetadata>& toAdd);
-
-    void UpdateConnectionListWithRecreate(const QList<Stats::ConnectionMetadata>& connections);
+    // Takes a whole poll snapshot in the lister's order; row N is always its Nth entry. UI thread only.
+    void UpdateConnectionList(const QList<Stats::ConnectionMetadata>& connections);
 
     void UpdateDataView(bool force = false);
 
@@ -239,7 +251,7 @@ private:
     qint64 vpn_pid = 0;
     QTextDocument *qvLogDocument = new QTextDocument(this);
     QString title_error;
-    int icon_status = -1;
+    std::optional<Icon::TrayIconStatus> icon_status;
     std::shared_ptr<Configs::Profile> running;
     int last_running_profile_id = -1;
     bool m_profileConnecting = false;
@@ -255,7 +267,9 @@ private:
     ExitReason exit_reason = ExitReason::None;
     QMutex mu_download_update;
     QMutex mu_download_dashboard;
-    QMutex connectionListMu;
+    class ConnectionsTableModel *connectionsModel = nullptr;
+    class ConnectionsFilterProxyModel *connectionsFilterModel = nullptr;
+    class ConnectionCloseDelegate *connectionCloseDelegate = nullptr;
     class ConnectionsFilterHeader *connectionFilterHeader = nullptr;
     QTimer *connectionFilterDebounce = nullptr;
     QToolButton *connectionCloseAllButton = nullptr;
@@ -343,6 +357,9 @@ private:
 
     void import_or_handle_deeplink(const QString &text);
 
+    // A pasted url asks whether it is a subscription or a proxy link; everything else is imported as is.
+    void import_text(const QString &text);
+
     void refresh_proxy_list_column_size();
 
     void refresh_proxy_list_impl(const QList<int> &ids = {}, bool mayNeedReset = false);
@@ -376,6 +393,7 @@ private:
     void applyLogBrowserFont();
 
     void applyTopBarMetrics();
+    bool usesTightLabels() const;
 
     QSize designMinimumSize;
 
@@ -424,7 +442,20 @@ private:
 
     void show_vpn_challenge(const VpnAuthChallenge &challenge);
 
+    // True once the challenge is either submitted or deliberately held back for a fresher code.
+    bool auto_answer_vpn_challenge(const VpnAuthChallenge &challenge);
+
+    void submit_vpn_challenge_answer(const VpnAuthChallenge &challenge, const QString &username,
+                                     const QString &password, const QString &secret,
+                                     const QMap<QString, QString> &formValues);
+
     void show_vpn_auth_failure(const QString &endpointTag, const QString &error);
+
+    bool auto_restart_for_vpn_auth(const QString &endpointTag, int profileID);
+
+    void update_vpn_endpoint_states(const QList<VpnEndpointState> &states);
+
+    void reset_vpn_endpoint_tracking();
 
     void clear_vpn_credential_overrides();
 
@@ -433,6 +464,15 @@ private:
     QSet<QString> m_vpnChallengeSeen;
     QPointer<DialogVpnAuth> m_vpnAuthDialog;
     QString m_vpnEndpointState;
+    QString m_vpnTroubleSummary;
+    QString m_vpnTroubleDetail;
+    QHash<QString, QString> m_vpnEndpointLastState;
+    QHash<QString, QString> m_vpnOtpLastCode;
+    QHash<QString, int> m_vpnOtpRejects;
+    QSet<QString> m_vpnChallengeAnswering;
+    // Like m_vpnAuthPrompted, these outlive the restart they count; nothing else would end it.
+    QHash<int, int> m_vpnAutoRestarts;
+    qint64 m_vpnAutoRestartAt = 0;
     // Survives the restart the recovery itself triggers, so a rejected retry cannot loop.
     QHash<int, int> m_vpnAuthPrompted;
     int m_vpnAuthRestartID = -1;
@@ -457,11 +497,7 @@ private:
 
     void applyConnectionFilters();
 
-    void buildConnectionRow(int row);
-
-    void fillConnectionRow(int row, const Stats::ConnectionMetadata &conn);
-
-    void resizeConnectionRows(int count);
+    void syncConnectionSourceColumn();
 
     // Rows are rewritten on every poll, so ids are read at click time, never captured.
     void closeConnections(const QStringList &ids);
@@ -479,7 +515,7 @@ protected:
 };
 
 inline MainWindow *GetMainWindow() {
-    return (MainWindow *) mainwindow;
+    return qobject_cast<MainWindow *>(mainwindow);
 }
 
 void UI_InitMainWindow();

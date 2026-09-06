@@ -98,7 +98,12 @@ void MainWindow::refresh_groups() {
     Configs::dataManager->settingsRepo->refreshing_group_list = false;
 }
 
+// The strip right of the last tab belongs to the tabWidget, not the tab bar.
 void MainWindow::on_tabWidget_customContextMenuRequested(const QPoint &p) {
+    show_group_tab_menu(ui->tabWidget->tabBar()->mapFrom(ui->tabWidget, p));
+}
+
+void MainWindow::show_group_tab_menu(const QPoint &p) {
     const int clickedIndex = ui->tabWidget->tabBar()->tabAt(p);
     if (clickedIndex == -1) {
         QMenu menu(this);
@@ -167,7 +172,7 @@ void MainWindow::on_tabWidget_customContextMenuRequested(const QPoint &p) {
             if (group->url.isEmpty()) return;
             if (mw_sub_updating) return;
             mw_sub_updating = true;
-            Subscription::groupUpdater->AsyncUpdate(group->url, group->id, [&] { mw_sub_updating = false; }, true);
+            Subscription::updater()->RefreshGroup(group->id, [&] { mw_sub_updating = false; }, true);
         });
     }
     if (clickedGroup != nullptr) {

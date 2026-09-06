@@ -1,22 +1,32 @@
 #pragma once
 
+#include <array>
+
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QToolButton>
-#include <QVector>
+
+#include "include/ui/utils/ConnectionsTableModel.h"
 
 // Filter row over the connections table; traffic/speed hold formatted byte counts, so they get no field.
 class ConnectionsFilterHeader : public QHeaderView {
     Q_OBJECT
 public:
-    enum Column { ColDest = 0, ColProcess = 1, ColProtocol = 2, ColOutbound = 3, ColClose = 6, ColumnCount = 7 };
+    struct Filters {
+        QString source;
+        QString dest;
+        QString process;
+        QString protocol;
+        QString outbound;
+    };
 
     explicit ConnectionsFilterHeader(QWidget *parent = nullptr)
         : QHeaderView(Qt::Horizontal, parent) {
         setSectionsClickable(true);
         setDefaultAlignment(Qt::AlignHCenter | Qt::AlignTop);
 
+        source_filter = makeEdit();
         dest_filter = makeEdit();
         process_filter = makeEdit();
         protocol_filter = makeEdit();
@@ -29,17 +39,15 @@ public:
 
     bool filtersVisible() const { return m_filtersVisible; }
 
-    bool hasActiveFilter() const {
-        for (QLineEdit *edit : filterEdits()) {
-            if (!edit->text().isEmpty()) return true;
-        }
-        return false;
+    // Hiding a column must clear its field, or the filter comes back with the column.
+    void clearFilterFor(int column) {
+        if (QLineEdit *edit = editForColumn(column)) edit->clear();
     }
 
-    bool accepts(const QString &dest, const QString &process,
-                 const QString &protocol, const QString &outbound) const {
-        return matches(dest_filter, dest) && matches(process_filter, process)
-            && matches(protocol_filter, protocol) && matches(outbound_filter, outbound);
+    Filters filters() const {
+        return {textFor(ConnectionsTableModel::ColSource), textFor(ConnectionsTableModel::ColDest),
+                textFor(ConnectionsTableModel::ColProcess), textFor(ConnectionsTableModel::ColProtocol),
+                textFor(ConnectionsTableModel::ColOutbound)};
     }
 
     QSize sizeHint() const override {
@@ -102,24 +110,35 @@ public slots:
 
         resizeSections();
         emit geometriesChanged();
+        adjustPositions();
 
         // Tab/Backtab/Shortcut focus reasons make QLineEdit select all; OtherFocusReason does not.
-        if (visible) dest_filter->setFocus(Qt::OtherFocusReason);
+        if (visible) {
+            auto *first = isSectionHidden(ConnectionsTableModel::ColSource) ? dest_filter : source_filter;
+            first->setFocus(Qt::OtherFocusReason);
+        }
     }
 
     void adjustPositions() {
-        if (!m_filtersVisible || count() < ColumnCount) return;
+        if (!m_filtersVisible || count() < ConnectionsTableModel::ColumnCount) return;
 
         const int editHeight = 24;
         const int topPos = height() - editHeight - 4;
 
+        // A hidden section reports width 0, so placing its edit would give it a negative width over the neighbour.
         auto place = [&](QLineEdit *edit, int section) {
+            if (isSectionHidden(section)) {
+                edit->hide();
+                return;
+            }
+            edit->show();
             edit->setGeometry(sectionViewportPosition(section) + 2, topPos, sectionSize(section) - 4, editHeight);
         };
-        place(dest_filter, ColDest);
-        place(process_filter, ColProcess);
-        place(protocol_filter, ColProtocol);
-        place(outbound_filter, ColOutbound);
+        place(source_filter, ConnectionsTableModel::ColSource);
+        place(dest_filter, ConnectionsTableModel::ColDest);
+        place(process_filter, ConnectionsTableModel::ColProcess);
+        place(protocol_filter, ConnectionsTableModel::ColProtocol);
+        place(outbound_filter, ConnectionsTableModel::ColOutbound);
     }
 
 signals:
@@ -139,21 +158,24 @@ private:
 
     QLineEdit *editForColumn(int column) const {
         switch (column) {
-        case ColDest:     return dest_filter;
-        case ColProcess:  return process_filter;
-        case ColProtocol: return protocol_filter;
-        case ColOutbound: return outbound_filter;
-        default:          return nullptr;
+        case ConnectionsTableModel::ColSource:   return source_filter;
+        case ConnectionsTableModel::ColDest:     return dest_filter;
+        case ConnectionsTableModel::ColProcess:  return process_filter;
+        case ConnectionsTableModel::ColProtocol: return protocol_filter;
+        case ConnectionsTableModel::ColOutbound: return outbound_filter;
+        default:                                 return nullptr;
         }
     }
 
-    QVector<QLineEdit*> filterEdits() const {
-        return {dest_filter, process_filter, protocol_filter, outbound_filter};
+    // A hidden column must report no filter, or its stale text would keep filtering the table invisibly.
+    QString textFor(int column) const {
+        QLineEdit *edit = editForColumn(column);
+        if (edit == nullptr || isSectionHidden(column)) return {};
+        return edit->text();
     }
 
-    static bool matches(const QLineEdit *edit, const QString &value) {
-        const QString needle = edit->text();
-        return needle.isEmpty() || value.contains(needle, Qt::CaseInsensitive);
+    std::array<QLineEdit*, 5> filterEdits() const {
+        return {source_filter, dest_filter, process_filter, protocol_filter, outbound_filter};
     }
 
     static bool isTextEditingKey(QKeyEvent *key) {
@@ -170,6 +192,7 @@ private:
         return false;
     }
 
+    QLineEdit *source_filter;
     QLineEdit *dest_filter;
     QLineEdit *process_filter;
     QLineEdit *protocol_filter;
