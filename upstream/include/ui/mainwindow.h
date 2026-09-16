@@ -3,7 +3,7 @@
 #include <QMainWindow>
 #include <include/global/HTTPRequestHelper.hpp>
 #ifndef Q_MOC_RUN
-#include <core/server/gen/libcore.pb.h>
+#include <core/gen/libcore.pb.h>
 #endif
 
 #include "include/global/Configs.hpp"
@@ -275,13 +275,17 @@ private:
     ExitReason exit_reason = ExitReason::None;
     QMutex mu_download_update;
     QMutex mu_download_dashboard;
-    class ConnectionsTableModel *connectionsModel = nullptr;
-    class ConnectionsFilterProxyModel *connectionsFilterModel = nullptr;
-    class ConnectionCloseDelegate *connectionCloseDelegate = nullptr;
+    class ConnectionsTreeModel *connectionsModel = nullptr;
+    class ConnectionsTreeFilterProxyModel *connectionsFilterModel = nullptr;
     class ConnectionsFilterHeader *connectionFilterHeader = nullptr;
+    QHash<QString, bool> m_processExpanded; // per-process choices; the rest follow m_processesExpandedByDefault
+    bool m_processesExpandedByDefault = true;
     QTimer *connectionFilterDebounce = nullptr;
+    QToolButton *connectionExpandButton = nullptr;
     QToolButton *connectionCloseAllButton = nullptr;
     QIcon connectionCloseIcon;
+    QIcon connectionExpandIcon;
+    QIcon connectionCollapseIcon;
     int toolTipID;
     SpeedWidget *speedChartWidget;
     class RuntimeStatsWidget *runtimeStatsWidget = nullptr;
@@ -512,11 +516,19 @@ private:
 
     void syncConnectionSourceColumn();
 
+    void syncConnectionExpansion();
+
+    void setConnectionGroupsExpanded(bool expanded);
+
+    bool connectionGroupsExpanded() const;
+
+    void syncConnectionExpandButton();
+
     void closeConnections(const QStringList &ids);
 
     QStringList listedConnectionIds() const;
 
-    void refreshConnectionCloseIcons();
+    void refreshConnectionIcons();
 
     friend class TestRunner;
 

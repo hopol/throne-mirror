@@ -1,6 +1,6 @@
 #include <QThread>
 #include <QDateTime>
-#include <core/server/gen/libcore.pb.h>
+#include <core/gen/libcore.pb.h>
 #include <include/api/RPC.h>
 #include "include/ui/mainwindow_interface.h"
 #include <include/stats/connections/connectionLister.hpp>
@@ -123,6 +123,22 @@ namespace Stats
                 if (ka == kb) return asc ? a.id > b.id : a.id < b.id;
                 return asc ? ka > kb : ka < kb;
             });
+        }
+    }
+
+    bool SortIsDescending(const ConnectionSort sort, const bool ascending)
+    {
+        switch (sort)
+        {
+        case Default:
+            return false;
+        case ByProcess:
+        case ByOutbound:
+        case ByProtocol:
+        case BySource:
+            return ascending;
+        default:
+            return !ascending;
         }
     }
 
