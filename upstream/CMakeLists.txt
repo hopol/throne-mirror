@@ -67,7 +67,6 @@ message("[CMAKE_FIND_ROOT_PATH] ${CMAKE_FIND_ROOT_PATH}")
 set(BUILD_SHARED_LIBS OFF)
 
 include("cmake/print.cmake")
-include("cmake/QHotkey.cmake")
 
 find_package(Threads)
 
@@ -88,8 +87,6 @@ endif ()
 
 include("cmake/myproto.cmake")
 list(APPEND NKR_EXTERNAL_TARGETS myproto)
-
-list(APPEND NKR_EXTERNAL_TARGETS qhotkey)
 
 # Sources
 set(PROJECT_SOURCES
@@ -124,7 +121,6 @@ set(PROJECT_SOURCES
         3rdparty/qv2ray/v2/ui/QvAutoCompleteTextEdit.cpp
         3rdparty/qv2ray/v2/ui/widgets/speedchart/SpeedWidget.cpp
         3rdparty/qv2ray/v2/ui/widgets/speedchart/SpeedWidget.hpp
-        3rdparty/qv2ray/v2/proxy/QvProxyConfigurator.cpp
 
         3rdparty/quirc/decode.c
         3rdparty/quirc/identify.c
@@ -171,6 +167,12 @@ set(PROJECT_SOURCES
         include/sys/UrlScheme.hpp
         src/sys/UrlScheme.cpp
 
+        include/sys/SystemProxy.hpp
+
+        include/sys/GlobalHotkeys.hpp
+        include/sys/GlobalHotkeyBackend.hpp
+        src/sys/GlobalHotkeys.cpp
+
         include/ui/setting/ThemeManager.hpp
         src/ui/setting/ThemeManager.cpp
         src/ui/setting/Icon.cpp
@@ -202,6 +204,8 @@ set(PROJECT_SOURCES
         src/ui/widget/TrayProfileSelector.cpp
         include/ui/widget/TrayOtpCodes.hpp
         src/ui/widget/TrayOtpCodes.cpp
+        include/ui/widget/SubscriptionInfoCard.hpp
+        src/ui/widget/SubscriptionInfoCard.cpp
         include/ui/widget/json/JsonTree.h
         src/ui/widget/json/JsonTree.cpp
         include/ui/widget/json/JsonValidator.h
@@ -237,6 +241,8 @@ set(PROJECT_SOURCES
 
         include/ui/profile/dialog_edit_profile.h
         src/ui/profile/dialog_edit_profile.cpp
+        src/ui/profile/dialog_edit_profile_singbox.cpp
+        src/ui/profile/dialog_edit_profile_xray.cpp
         src/ui/profile/dialog_edit_profile_xhttp.cpp
         include/ui/profile/dialog_edit_profile.ui
         include/ui/group/dialog_edit_group.h
