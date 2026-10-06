@@ -8,16 +8,19 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QMenu>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QThread>
 
 #include "include/api/RPC.h"
 #include "include/configs/generate.h"
-#include "include/database/MarkersRepo.h"
 #include "include/global/Configs.hpp"
 #include "include/global/HTTPRequestHelper.hpp"
 #include "include/global/LocalNetwork.hpp"
 #include "include/global/Logger.hpp"
+#include "include/scanner/ScanManager.h"
+#include "include/sys/KillSwitch.hpp"
 #include "include/sys/Process.hpp"
 #include "include/sys/SystemProxy.hpp"
 #include "include/ui/mainWindow/MainWindowInternal.h"
@@ -69,29 +72,6 @@ void MainWindow::on_menu_routing_settings_triggered() {
         dialog_is_using = false;
     });
     dialog->show();
-}
-
-void MainWindow::showHijackDeprecationNotice() {
-    const auto &settings = Configs::dataManager->settingsRepo;
-    if (!settings->enable_dns_server && !settings->enable_redirect) return;
-    if (Configs::dataManager->markersRepo->IsMarked(Configs::Markers::HijackDeprecated)) return;
-
-    auto text = tr("Hijack (Preferences > Routing Settings > Hijack) is deprecated and will be removed in the next release.");
-#ifdef Q_OS_WIN
-    text += " " + tr("The System DNS option depends on it and will be removed along with it.");
-#endif
-    text += "\n\n" + tr("Tun mode covers the same use case.");
-
-    auto *box = new QMessageBox(QMessageBox::Warning, tr("Hijack is deprecated"), text, QMessageBox::Ok, GetMessageBoxParent());
-    const auto *dontShowAgain = box->addButton(tr("Don't show again"), QMessageBox::ActionRole);
-    // An ActionRole button leaves no auto-detected escape button, which disables Esc and the title-bar close.
-    box->setEscapeButton(QMessageBox::Ok);
-    box->setAttribute(Qt::WA_DeleteOnClose);
-    box->setWindowModality(Qt::NonModal);
-    connect(box, &QMessageBox::buttonClicked, this, [dontShowAgain](const QAbstractButton *button) {
-        if (button == dontShowAgain) Configs::dataManager->markersRepo->Mark(Configs::Markers::HijackDeprecated);
-    });
-    box->show();
 }
 
 void MainWindow::on_menu_vpn_settings_triggered() {
@@ -153,10 +133,10 @@ void MainWindow::prepare_exit()
     LOG_INFO("prepare_exit started, tearing down proxy/tun/core");
     // Unconditional: an uncheck may still have its clear queued.
     set_system_proxy(false, true);
-    if (Configs::dataManager->settingsRepo->system_dns_set) set_system_dns(false, false);
     RegisterHiddenMenuShortcuts(true);
     RegisterHotkey(true);
     on_commitDataRequest();
+    Scanner::ScanManager::instance()->StopAll(true);
     Configs::dataManager->settingsRepo->noSave = true; // don't change Configs::dataManager->settingsRepo after this line
     profile_stop(false, true);
 
@@ -166,6 +146,8 @@ void MainWindow::prepare_exit()
     }, DS_cores, true);
     HideWindow(this);
     tray->hide();
+    // Only once the core is gone: until then the guard keeps blocking whatever would leak around the dying tunnel.
+    Sys::KillSwitch::instance()->shutdown();
 
     mu_exit.unlock();
     qDebug() << "prepare exit done!";
@@ -181,7 +163,8 @@ void MainWindow::on_menu_exit_triggered() {
 #else
         QProcess::startDetached("./updater", QStringList{});
 #endif
-    } else if (exit_reason == ExitReason::Restart || exit_reason == ExitReason::RestartWithTun || exit_reason == ExitReason::RestartWithDns) {
+    } else if (exit_reason == ExitReason::Restart || exit_reason == ExitReason::RestartWithTun ||
+               exit_reason == ExitReason::RestartElevated) {
         QDir::setCurrent(QApplication::applicationDirPath());
 
         auto arguments = Configs::dataManager->settingsRepo->argv;
@@ -189,20 +172,18 @@ void MainWindow::on_menu_exit_triggered() {
             arguments.removeFirst();
             arguments.removeAll("-tray");
             arguments.removeAll("-flag_restart_tun_on");
-            arguments.removeAll("-flag_restart_dns_set");
         }
         auto program = QApplication::applicationFilePath();
 
-        if (exit_reason == ExitReason::RestartWithTun || exit_reason == ExitReason::RestartWithDns) {
-            if (exit_reason == ExitReason::RestartWithTun) arguments << "-flag_restart_tun_on";
-            if (exit_reason == ExitReason::RestartWithDns) arguments << "-flag_restart_dns_set";
+        if (exit_reason == ExitReason::RestartWithTun) arguments << "-flag_restart_tun_on";
+        if (exit_reason == ExitReason::Restart) {
+            QProcess::startDetached(program, arguments);
+        } else {
 #ifdef Q_OS_WIN
             WinCommander::runProcessElevated(program, arguments, "", 1, false);
 #else
             QProcess::startDetached(program, arguments);
 #endif
-        } else {
-            QProcess::startDetached(program, arguments);
         }
     }
     QCoreApplication::quit();
@@ -217,7 +198,7 @@ void MainWindow::toggle_system_proxy() {
     }
 }
 
-bool MainWindow::get_elevated_permissions(ExitReason reason) {
+bool MainWindow::get_elevated_permissions() {
     if (Configs::dataManager->settingsRepo->disable_privilege_req)
     {
         MW_show_log(tr("User opted for no privilege req, some features may not work"));
@@ -256,7 +237,7 @@ bool MainWindow::get_elevated_permissions(ExitReason reason) {
 #ifdef Q_OS_WIN
     auto n = QMessageBox::warning(GetMessageBoxParent(), software_name, tr("Please run Throne as admin"), QMessageBox::Yes | QMessageBox::No);
     if (n == QMessageBox::Yes) {
-        this->exit_reason = reason;
+        this->exit_reason = ExitReason::RestartWithTun;
         on_menu_exit_triggered();
     }
 #endif
@@ -376,6 +357,135 @@ void MainWindow::RestartCore() {
     {
         profile_stop(true, true, true);
         core_process->Kill();
+    }, DS_cores);
+}
+
+void MainWindow::kill_switch_state_changed() {
+    const auto state = Sys::KillSwitch::instance()->state();
+    const bool failed = state == Sys::KillSwitch::State::Failed;
+    const bool armed = state == Sys::KillSwitch::State::Armed;
+    const bool enteredFailed = failed && !m_killSwitchWasFailed;
+    const bool enteredArmed = armed && !m_killSwitchWasArmed;
+    m_killSwitchWasFailed = failed;
+    m_killSwitchWasArmed = armed;
+
+    refresh_status();
+    if (!failed && m_killSwitchDialog) m_killSwitchDialog->close();
+    if (enteredFailed) show_kill_switch_problem();
+    if (enteredArmed && !guard_core_restart_pending() && core_lacks_guard_identity()) {
+        restart_core_for_guard(Configs::dataManager->settingsRepo->started_id);
+    }
+}
+
+void MainWindow::show_kill_switch_problem() {
+    auto *killSwitch = Sys::KillSwitch::instance();
+    if (killSwitch->state() != Sys::KillSwitch::State::Failed) return;
+    const bool privilege = killSwitch->failedForPrivileges();
+    if (m_killSwitchDialog) {
+        if (m_killSwitchDialog->property("privilege").toBool() == privilege) {
+            m_killSwitchDialog->setText(killSwitch->failureText());
+            return;
+        }
+        m_killSwitchDialog->close();
+    }
+
+    auto *box = new QMessageBox(QMessageBox::Warning, tr("Kill switch is not active"), killSwitch->failureText(),
+                                QMessageBox::NoButton, this);
+    box->setTextFormat(Qt::PlainText);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    box->setProperty("privilege", privilege);
+#ifdef Q_OS_WIN
+    auto *fix = box->addButton(privilege ? tr("Restart as Administrator") : tr("Retry"), QMessageBox::AcceptRole);
+#else
+    auto *fix = box->addButton(privilege ? tr("Grant Privileges") : tr("Retry"), QMessageBox::AcceptRole);
+#endif
+    auto *disable = box->addButton(tr("Disable Kill Switch"), QMessageBox::DestructiveRole);
+    auto *cancel = box->addButton(QMessageBox::Cancel);
+    box->setDefaultButton(fix);
+    box->setEscapeButton(cancel);
+    m_killSwitchDialog = box;
+
+    // Custom-button result codes changed in Qt 6.5, so only the clicked button pointer is trusted.
+    connect(box, &QMessageBox::finished, this, [this, box, fix, disable, privilege] {
+        const auto *clicked = box->clickedButton();
+        if (m_killSwitchDialog == box) m_killSwitchDialog = nullptr;
+        if (clicked == disable) {
+            disable_kill_switch();
+            return;
+        }
+        if (clicked != fix) return;
+        if (!privilege) {
+            Sys::KillSwitch::instance()->apply();
+            return;
+        }
+#ifdef Q_OS_WIN
+        exit_reason = ExitReason::RestartElevated;
+        on_menu_exit_triggered();
+#else
+        // Otherwise the core restarts once it is privileged, and CoreStarted retries.
+        if (get_elevated_permissions()) Sys::KillSwitch::instance()->apply();
+#endif
+    });
+    box->open();
+}
+
+void MainWindow::show_startstop_menu() {
+    if (!Configs::dataManager->settingsRepo->kill_switch) return;
+    QMenu menu(this);
+    connect(menu.addAction(tr("Disable Kill Switch")), &QAction::triggered, this, [this] { confirm_disable_kill_switch(); });
+    auto *button = ui->toolButton_startstop;
+    menu.exec(button->mapToGlobal(QPoint(0, button->height())));
+}
+
+void MainWindow::confirm_disable_kill_switch() {
+    auto *box = new QMessageBox(QMessageBox::Warning, tr("Disable kill switch"),
+                                tr("Turn off the kill switch? Traffic that does not go through Throne will no longer be blocked."),
+                                QMessageBox::NoButton, this);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    auto *disable = box->addButton(tr("Disable Kill Switch"), QMessageBox::DestructiveRole);
+    auto *cancel = box->addButton(QMessageBox::Cancel);
+    // Cancel is the default, so a stray Enter cannot complete the two-step disable.
+    box->setDefaultButton(cancel);
+    box->setEscapeButton(cancel);
+    connect(box, &QMessageBox::finished, this, [this, box, disable] {
+        if (box->clickedButton() == disable) disable_kill_switch();
+    });
+    box->open();
+}
+
+void MainWindow::disable_kill_switch() {
+    Configs::dataManager->settingsRepo->kill_switch = false;
+    Configs::dataManager->settingsRepo->Save();
+    Sys::KillSwitch::instance()->apply();
+}
+
+bool MainWindow::core_lacks_guard_identity() {
+#ifdef Q_OS_WIN
+    return false;
+#else
+    QMutexLocker lock(&coreProcessMutex);
+    return core_process != nullptr && Configs::dataManager->settingsRepo->core_running && !core_process->guard_identity;
+#endif
+}
+
+bool MainWindow::guard_core_restart_pending() const {
+    constexpr qint64 kRestartWindowMs = 15000;
+    return m_guardCoreRestart.isValid() && !m_guardCoreRestart.hasExpired(kRestartWindowMs);
+}
+
+void MainWindow::restart_core_for_guard(int startId) {
+    {
+        // The IPC handler takes this slot under the same lock when the new core connects.
+        QMutexLocker lock(&coreProcessMutex);
+        if (core_process == nullptr) return;
+        core_process->start_profile_when_core_is_up = startId;
+    }
+    if (guard_core_restart_pending()) return;
+    m_guardCoreRestart.start();
+    MW_show_log(tr("[Kill switch] Restarting the core so that its own traffic passes the kill switch..."));
+    runOnThread([this] {
+        profile_stop(true, true);
+        core_process->Restart();
     }, DS_cores);
 }
 

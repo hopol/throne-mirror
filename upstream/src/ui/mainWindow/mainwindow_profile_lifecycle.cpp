@@ -26,10 +26,12 @@
 #include "include/global/VpnCredentialOverride.hpp"
 #include "include/ui/profile/dialog_vpn_auth.h"
 
+#include "include/sys/KillSwitch.hpp"
 #include "include/sys/Process.hpp"
 
 #include <algorithm>
 #include <memory>
+#include <utility>
 
 using namespace API;
 
@@ -42,29 +44,6 @@ void MainWindow::setup_rpc(QLocalSocket *socket) {
         runOnNewThread([=, this] { Stats::connection_lister->Loop(); });
         runOnNewThread([=, this] { Stats::autoSelectorMonitor->Loop(); });
     }
-}
-
-bool MainWindow::set_system_dns(bool set, bool save_set) {
-    if (!Configs::dataManager->settingsRepo->enable_dns_server) {
-        MW_show_log(tr("You need to enable hijack DNS server first"));
-        return false;
-    }
-    if (!get_elevated_permissions(ExitReason::RestartWithDns)) {
-        return false;
-    }
-    bool rpcOK;
-    QString res;
-    if (set) {
-        res = defaultClient->SetSystemDNS(&rpcOK, false);
-    } else {
-        res = defaultClient->SetSystemDNS(&rpcOK, true);
-    }
-    if (!rpcOK) {
-        MW_show_log(tr("Failed to set system dns: ") + res);
-        return false;
-    }
-    if (save_set) Configs::dataManager->settingsRepo->system_dns_set = set;
-    return true;
 }
 
 int MainWindow::get_profile_to_start() {
@@ -171,14 +150,6 @@ bool MainWindow::handleXrayGeoAssetError(const QString& error, const QString& co
 
 void MainWindow::profile_start(int _id) {
     if (Configs::dataManager->settingsRepo->prepare_exit) return;
-#ifdef Q_OS_LINUX
-    if (Configs::dataManager->settingsRepo->enable_dns_server && Configs::dataManager->settingsRepo->dns_server_listen_port <= 1024) {
-        if (!get_elevated_permissions()) {
-            MW_show_log(QString("Failed to get admin access, cannot listen on port %1 without it").arg(Configs::dataManager->settingsRepo->dns_server_listen_port));
-            return;
-        }
-    }
-#endif
 
     std::shared_ptr<Configs::Profile> ent = nullptr;
     if (_id >= 0) {
@@ -202,6 +173,29 @@ void MainWindow::profile_start(int _id) {
 
     const auto group = Configs::dataManager->groupsRepo->GetGroup(ent->gid);
     if (group == nullptr || group->archive) return;
+
+    auto *killSwitch = Sys::KillSwitch::instance();
+    if (killSwitch->state() == Sys::KillSwitch::State::Arming) {
+        // Only the latest request survives, so repeated clicks while arming start one profile.
+        const bool queued = m_killSwitchDeferredStart >= 0;
+        m_killSwitchDeferredStart = ent->id;
+        if (!queued) {
+            killSwitch->whenSettled(this, [this](bool) {
+                if (const int id = std::exchange(m_killSwitchDeferredStart, -1); id >= 0) profile_start(id);
+            });
+        }
+        return;
+    }
+    if (!killSwitch->allowsStart()) {
+        MW_show_log(tr("[Kill switch] Not starting %1: the kill switch is not active.").arg(ent->outbound->DisplayTypeAndName()));
+        show_kill_switch_problem();
+        return;
+    }
+    if (guard_core_restart_pending() ||
+        (killSwitch->state() == Sys::KillSwitch::State::Armed && core_lacks_guard_identity())) {
+        restart_core_for_guard(ent->id);
+        return;
+    }
 
     // Ranking must run before the config is built and it blocks, so hop off the UI thread.
     if (ent->type == "autoselector" && !auto_selector_ranked) {
@@ -246,6 +240,19 @@ void MainWindow::profile_start(int _id) {
         }
         if (!result->extraCoreData->path.isEmpty())
         {
+            if (!Sys::KillSwitch::instance()->permitExtraCore(result->extraCoreData->path)) {
+                runOnUiThread([restartPrompt] { if (restartPrompt) restartPrompt->dismiss(); });
+                MW_show_log(tr("[Kill switch] The extra core %1 could not be allowed through the kill switch.").arg(result->extraCoreData->path));
+                runOnUiThread([this] {
+                    if (Sys::KillSwitch::instance()->state() == Sys::KillSwitch::State::Failed) {
+                        show_kill_switch_problem();
+                    } else {
+                        ShowPassiveWarning(tr("Kill switch"),
+                                           tr("The kill switch could not be updated to allow this profile's extra core, so the profile was not started. See the log for details."));
+                    }
+                });
+                return false;
+            }
             req.need_extra_process = true;
             req.extra_process_path = result->extraCoreData->path.toStdString();
             req.extra_process_args = result->extraCoreData->args.toStdString();

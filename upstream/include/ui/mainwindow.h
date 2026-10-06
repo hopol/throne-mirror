@@ -58,11 +58,14 @@ namespace Configs {
     enum simpleAction : int;
 }
 
+class QMessageBox;
 class TrayProfileSelector;
 class TrayOtpCodes;
 class GlobalHotkeys;
 class TestRunner;
 class DialogVpnAuth;
+class DialogScanner;
+class DialogIpLists;
 struct VpnAuthChallenge;
 
 struct VpnEndpointState {
@@ -91,7 +94,7 @@ enum class ExitReason {
     RunUpdater,
     Restart,
     RestartWithTun,
-    RestartWithDns,
+    RestartElevated,
 };
 
 class MainWindow : public QMainWindow {
@@ -139,7 +142,7 @@ public:
 
     void set_spmode_vpn(bool enable, bool save = true);
 
-    bool get_elevated_permissions(ExitReason reason = ExitReason::RestartWithTun);
+    bool get_elevated_permissions();
 
     void start_select_mode(QObject *context, const std::function<void(int)> &callback);
 
@@ -167,6 +170,12 @@ public:
 
     void setDownloadReport(const DownloadProgressReport& report, bool show);
 
+    void showIpListsDialog(int selectListId = -1);
+
+    void showScannerDialog();
+
+    void refreshScannerDataView(bool force = false);
+
 signals:
 
     void profile_selected(int id);
@@ -192,6 +201,8 @@ private slots:
     void on_menu_preset_settings_triggered();
 
     void on_menu_otp_manager_triggered();
+
+    void on_menu_scanner_triggered();
 
     void on_menu_hotkey_settings_triggered();
 
@@ -480,10 +491,38 @@ private:
 
     void clear_vpn_credential_overrides();
 
+    void kill_switch_state_changed();
+
+    void show_kill_switch_problem();
+
+    void show_startstop_menu();
+
+    void confirm_disable_kill_switch();
+
+    void disable_kill_switch();
+
+    // Linux/macOS: a core started before the kill switch was on has not adopted the guard group.
+    bool core_lacks_guard_identity();
+
+    bool guard_core_restart_pending() const;
+
+    // The restarted core starts startId through CoreStarted; a start requested meanwhile replaces it.
+    void restart_core_for_guard(int startId);
+
+    QPointer<QMessageBox> m_killSwitchDialog;
+    bool m_killSwitchWasFailed = false;
+    bool m_killSwitchWasArmed = false;
+    int m_killSwitchDeferredStart = -1;
+    QElapsedTimer m_guardCoreRestart;
+
     QTimer *m_vpnChallengeTimer = nullptr;
     std::atomic<bool> m_vpnChallengeBusy{false};
     QSet<QString> m_vpnChallengeSeen;
     QPointer<DialogVpnAuth> m_vpnAuthDialog;
+    QPointer<DialogScanner> m_scannerDialog;
+    QPointer<DialogIpLists> m_ipListsDialog;
+    QHash<int, QString> m_scannerNames;
+    bool m_scannerPanelShown = false;
     QString m_vpnEndpointState;
     QString m_vpnTroubleSummary;
     QString m_vpnTroubleDetail;
@@ -496,10 +535,6 @@ private:
     // Survives the restart the recovery itself triggers, so a rejected retry cannot loop.
     QHash<int, int> m_vpnAuthPrompted;
     int m_vpnAuthRestartID = -1;
-
-    bool set_system_dns(bool set, bool save_set = true);
-
-    void showHijackDeprecationNotice();
 
     void CheckUpdate();
 

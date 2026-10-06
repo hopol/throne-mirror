@@ -704,13 +704,6 @@
              </widget>
             </item>
             <item>
-             <widget class="QCheckBox" name="show_sys_dns">
-              <property name="text">
-               <string>Show System DNS option</string>
-              </property>
-             </widget>
-            </item>
-            <item>
              <widget class="QCheckBox" name="disable_tray">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -1609,6 +1602,16 @@
            </widget>
           </item>
           <item>
+           <widget class="QCheckBox" name="backup_inc_ip_lists">
+            <property name="text">
+             <string>IP lists and scans</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QCheckBox" name="backup_inc_icons">
             <property name="text">
              <string>Custom icons</string>
@@ -1714,6 +1717,17 @@
        <string>Security</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_4">
+       <item>
+        <widget class="QCheckBox" name="kill_switch">
+         <property name="toolTip">
+          <string>While Throne is running, block all traffic that does not go through Throne, including when no profile is running.
+The local network stays reachable unless Private Range Bypass is turned off in Tun Settings.</string>
+         </property>
+         <property name="text">
+          <string>Kill Switch</string>
+         </property>
+        </widget>
+       </item>
        <item>
         <widget class="QCheckBox" name="disable_priv_req">
          <property name="text">

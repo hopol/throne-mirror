@@ -11,8 +11,11 @@
 #include "include/configs/sub/RouteUpdater.hpp"
 #include "include/global/PeriodicRunner.hpp"
 #include "include/global/Logger.hpp"
+#include "include/scanner/IpListUpdater.h"
+#include "include/scanner/ScanManager.h"
 #include "include/stats/autoselector/AutoSelectorMonitor.hpp"
 #include "include/ui/stats/dialog_auto_selector.h"
+#include "include/sys/KillSwitch.hpp"
 #include "include/sys/Process.hpp"
 #include "include/sys/AutoRun.hpp"
 #include "include/sys/UrlScheme.hpp"
@@ -233,6 +236,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         MW_dialog_message(MwMessage::CoreStarted, {Int2String(profileId)});
     });
 
+    // Must precede the first CoreStarted, or a remembered profile would start before the guard is even arming.
+    Sys::KillSwitch::instance()->apply();
+
     auto socketFullName = core_server->fullServerName();
     runOnThread(
         [=, this] {
@@ -270,6 +276,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         if (running != nullptr) profile_stop(false, false, true);
         else profile_start();
     });
+    ui->toolButton_startstop->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->toolButton_startstop, &QWidget::customContextMenuRequested, this, [this] { show_startstop_menu(); });
     connect(ui->tabWidget->tabBar(), &QTabBar::tabMoved, this, [=,this](int from, int to) {
         QList<int> tabOrder;
         for (int i = 0; i < ui->tabWidget->tabBar()->count(); i++) {
@@ -411,6 +419,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->runtime_tab->layout()->addWidget(runtimeScroll);
 
     profilesTableModel = new ProfilesTableModel(this);
+    // A profile fed by an IP list shows the list's first entry, which any list change can move.
+    const auto refreshEffectiveAddresses = [this] {
+        Configs::InvalidateEndpointDisplayCache();
+        profilesTableModel->invalidateAddresses();
+    };
+    connect(Scanner::IpListUpdater::instance(), &Scanner::IpListUpdater::listsChanged, this, refreshEffectiveAddresses,
+            Qt::QueuedConnection);
+    connect(Scanner::IpListUpdater::instance(), &Scanner::IpListUpdater::listUpdated, this, refreshEffectiveAddresses,
+            Qt::QueuedConnection);
     profilesFilterModel = new ProfilesFilterProxyModel(this);
     profilesFilterModel->setSourceModel(profilesTableModel);
     ui->profilesTableView->setModel(profilesFilterModel);
@@ -481,8 +498,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         int columnIndex = header->logicalIndexAt(pos);
         auto group = Configs::dataManager->groupsRepo->CurrentGroup();
         if (group == nullptr) return;
-        if (columnIndex == ProfilesTableModel::ColType) {
-            if (!Configs::dataManager->settingsRepo->show_config_security) return;
+        // The column-widths action carries its shortcut id as data, so it must never be read as a sort key.
+        auto execWithResetWidths = [&](QMenu& menu) -> QAction* {
+            if (!menu.isEmpty()) menu.addSeparator();
+            menu.addAction(ui->actionRefresh_Column_Widths);
+            auto* chosen = menu.exec(header->mapToGlobal(pos));
+            return chosen == ui->actionRefresh_Column_Widths ? nullptr : chosen;
+        };
+        if (columnIndex == ProfilesTableModel::ColType && Configs::dataManager->settingsRepo->show_config_security) {
             QMenu menu(this);
             auto* sortByLabel = menu.addAction(tr("Sort By:"));
             sortByLabel->setEnabled(false);
@@ -499,7 +522,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
                 act->setChecked(group->type_sort_by == opt.value);
             }
 
-            auto* chosen = menu.exec(header->mapToGlobal(pos));
+            auto* chosen = execWithResetWidths(menu);
             if (chosen == nullptr || !chosen->data().isValid()) return;
 
             group->type_sort_by = static_cast<Configs::typeBy>(chosen->data().toInt());
@@ -574,7 +597,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
                 act->setChecked(static_cast<int>(group->test_sort_by) == opt.value);
             }
 
-            auto* chosen = menu.exec(header->mapToGlobal(pos));
+            auto* chosen = execWithResetWidths(menu);
             if (chosen == nullptr || !chosen->data().isValid()) return;
 
             int testSortBy = chosen->data().toInt();
@@ -618,7 +641,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
                 act->setChecked(static_cast<int>(group->traffic_sort_by) == opt.value);
             }
 
-            auto* chosen = menu.exec(header->mapToGlobal(pos));
+            auto* chosen = execWithResetWidths(menu);
             if (chosen == nullptr || !chosen->data().isValid()) return;
 
             int trafficSortBy = chosen->data().toInt();
@@ -643,6 +666,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
                 });
             return;
         }
+        QMenu menu(this);
+        execWithResetWidths(menu);
     });
     ui->profilesTableView->verticalHeader()->setStretchLastSection(false);
     ui->profilesTableView->verticalHeader()->setDefaultSectionSize(24);
@@ -784,15 +809,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         set_spmode_vpn(false);
     });
     connect(ui->menu_qr, &QAction::triggered, this, [=,this]() { display_qr_link(false); });
-    connect(ui->system_dns, &QCheckBox::clicked, this, [=,this](bool checked) {
-        if (const auto ok = set_system_dns(checked); !ok) {
-            ui->system_dns->setChecked(!checked);
-        } else {
-            refresh_status();
-        }
-    });
-    if (Configs::dataManager->settingsRepo->show_system_dns) ui->system_dns->show();
-    else ui->system_dns->hide();
 
     connect(ui->menu_server, &QMenu::aboutToShow, this, [=,this](){
         if (auto selected = get_now_selected_list(); selected.empty())
@@ -846,7 +862,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(dialog, &QDialog::finished, this, [=,this] {
             if (dialog->result() == QDialog::Accepted) {
                 Configs::dataManager->groupsRepo->Save(ent);
-                MW_dialog_message(MwMessage::GroupsChanged, {});
+                MW_dialog_message(MwMessage::GroupsChanged, dialog->RestartNeeded() ? QStringList{MwArg::RestartProxy} : QStringList{});
             }
             dialog->deleteLater();
         });
@@ -874,6 +890,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     connect(ui->actionRefresh_Column_Widths, &QAction::triggered, this, [=, this] {
         auto ent = Configs::dataManager->groupsRepo->CurrentGroup();
+        if (ent == nullptr) return;
         ent->column_width.clear();
         Configs::dataManager->groupsRepo->Save(ent);
         show_group(ent->id);
@@ -1099,6 +1116,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(Stats::autoSelectorMonitor, &Stats::AutoSelectorMonitor::updated, this,
             [this] { refresh_auto_selector_view(); }, Qt::QueuedConnection);
 
+    auto* scanManager = Scanner::ScanManager::instance();
+    connect(scanManager, &Scanner::ScanManager::progressChanged, this,
+            [this](int) { refreshScannerDataView(); }, Qt::QueuedConnection);
+    connect(scanManager, &Scanner::ScanManager::statusChanged, this,
+            [this](int) { refreshScannerDataView(true); }, Qt::QueuedConnection);
+    connect(scanManager, &Scanner::ScanManager::scansChanged, this, [this] {
+        m_scannerNames.clear();
+        refreshScannerDataView(true);
+    }, Qt::QueuedConnection);
+
     {
         auto* runner = Throne::PeriodicRunner::instance();
         // Interval is sign-encoded in settings (negative = disabled); < 30 min counts as off.
@@ -1121,12 +1148,21 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             },
             [] { UI_update_all_remote_routes(true); },
         });
+        runner->Add({
+            {},
+            [] { return 1; },
+            nullptr,
+            nullptr,
+            [] { Scanner::IpListUpdater::instance()->CheckAutoUpdate(); },
+        });
     }
 
     if (!Configs::dataManager->settingsRepo->flag_tray) show();
     else if (tray->isVisible()) HideWindow(this);
-    // Deferred: GetMessageBoxParent() falls back to the mainwindow global, which is only set once this constructor returns.
-    QTimer::singleShot(0, this, &MainWindow::showHijackDeprecationNotice);
+
+    // Connected only now: the handler refreshes the tray and views, which do not exist when apply() first runs above.
+    connect(Sys::KillSwitch::instance(), &Sys::KillSwitch::stateChanged, this, [this] { kill_switch_state_changed(); });
+    QTimer::singleShot(0, this, [this] { kill_switch_state_changed(); });
 
     ui->data_view->setStyleSheet("background: transparent; border: none;");
 

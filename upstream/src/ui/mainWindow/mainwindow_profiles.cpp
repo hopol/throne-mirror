@@ -70,13 +70,7 @@ void MainWindow::on_menu_clone_triggered() {
     auto btn = QMessageBox::question(this, tr("Clone"), tr("Clone %1 item(s)").arg(entIDs.count()));
     if (btn != QMessageBox::Yes) return;
 
-    QStringList sls;
-    auto ents = Configs::dataManager->profilesRepo->GetProfileBatch(entIDs);
-    for (const auto &ent: ents) {
-        sls << ent->outbound->ExportJsonLink();
-    }
-
-    Subscription::updater()->ImportText(sls.join("\n"));
+    Subscription::updater()->CloneProfiles(entIDs);
 }
 
 void MainWindow::on_menu_delete_repeat_triggered() {
@@ -426,7 +420,7 @@ void MainWindow::on_menu_remove_insecure_triggered() {
     int remove_display_count = 0;
     for (const auto& profile : profiles) {
         if (!profile || !profile->outbound) continue;
-        if (!profile->outbound->GetSecurity().isDangerous()) continue;
+        if (!profile->outbound->EffectiveSecurity().isInsecure()) continue;
         del_ids += profile->id;
         if (remove_display_count < removeListPreviewLimit) {
             remove_display += profile->outbound->DisplayTypeAndName() + "\n";

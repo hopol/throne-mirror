@@ -17,6 +17,7 @@
 #include "include/database/RoutesRepo.h"
 #include "include/global/PeriodicRunner.hpp"
 #include "include/sys/AutoRun.hpp"
+#include "include/sys/KillSwitch.hpp"
 #include "include/ui/mainWindow/MainWindowInternal.h"
 #include "include/ui/setting/Icon.hpp"
 #include "include/ui/utils/ProfilesTableModel.h"
@@ -295,10 +296,6 @@ void MainWindow::dialog_message_impl(MwMessage cmd, const QStringList &args) {
         if (changed(MwArg::DisableTray)) {
             tray->setVisible(!settings->disable_tray);
         }
-        if (changed(MwArg::SystemDns)) {
-            if (settings->show_system_dns) ui->system_dns->show();
-            else ui->system_dns->hide();
-        }
         if (changed(MwArg::ChoosePort)) {
             settings->inbound_socks_port = MkPort(settings->inbound_address);
             if (settings->spmode_system_proxy) {
@@ -317,6 +314,7 @@ void MainWindow::dialog_message_impl(MwMessage cmd, const QStringList &args) {
         }
         auto suggestRestartProxy = settings->Save();
         Throne::PeriodicRunner::instance()->CheckNow();
+        if (changed(MwArg::KillSwitch) || changed(MwArg::Vpn)) Sys::KillSwitch::instance()->apply();
         if (changed(MwArg::Route)) {
             settings->Save();
             suggestRestartProxy = true;
@@ -354,6 +352,8 @@ void MainWindow::dialog_message_impl(MwMessage cmd, const QStringList &args) {
         break;
     case MwMessage::GroupsChanged:
         refresh_groups();
+        profilesTableModel->invalidateAddresses();
+        if (changed(MwArg::RestartProxy)) noteRestartNeeded(tr("Group"));
         break;
     case MwMessage::SubscriptionFinished:
         refresh_proxy_list({}, true);
@@ -374,7 +374,10 @@ void MainWindow::dialog_message_impl(MwMessage cmd, const QStringList &args) {
         profile_stop();
         break;
     case MwMessage::CoreStarted:
+        m_guardCoreRestart.invalidate();
         Configs::IsAdmin(true);
+        // The core may just have been given root, which the guard needs too.
+        if (Sys::KillSwitch::instance()->failedForPrivileges()) Sys::KillSwitch::instance()->apply();
         if (settings->remember_enable && settings->remember_system_proxy) {
             set_spmode_system_proxy(true, false);
         }
@@ -382,15 +385,8 @@ void MainWindow::dialog_message_impl(MwMessage cmd, const QStringList &args) {
             set_spmode_vpn(true, settings->flag_restart_tun_on);
             settings->flag_restart_tun_on = false;
         }
-        if (settings->flag_dns_set) {
-            set_system_dns(true);
-        }
         if (auto id = args.value(0).toInt(); id >= 0) {
             profile_start(id);
-        }
-        if (settings->system_dns_set) {
-            set_system_dns(true);
-            ui->system_dns->setChecked(true);
         }
         refresh_status();
         break;
