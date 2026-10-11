@@ -219,16 +219,26 @@ void MainWindow::setupConnectionFilter()
     connectionCloseAllButton->setToolTip(tr("Close every connection listed below"));
     connect(connectionCloseAllButton, &QToolButton::clicked, this, [this] { closeConnections(listedConnectionIds()); });
 
-    auto* corner = new QWidget(this);
-    auto* cornerLayout = new QHBoxLayout(corner);
-    cornerLayout->setContentsMargins(0, 0, 0, 0);
-    cornerLayout->setSpacing(2);
-    cornerLayout->addWidget(btnFilter);
-    cornerLayout->addWidget(connectionExpandButton);
-    cornerLayout->addWidget(connectionCloseAllButton);
+    auto buttonGroup = [this](std::initializer_list<QWidget*> buttons) {
+        auto* group = new QWidget(this);
+        auto* layout = new QHBoxLayout(group);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(2);
+        for (auto* button : buttons) layout->addWidget(button);
+        return group;
+    };
+    auto* connectionButtons = buttonGroup({btnFilter, connectionExpandButton, connectionCloseAllButton});
+    // A tab widget has one top-right corner, so the Logs tab's buttons share it.
+    auto* logButtons = buttonGroup({logJumpLatestButton, logFilterButton});
+    auto* corner = buttonGroup({logButtons, connectionButtons});
     ui->stats_widget->setCornerWidget(corner, Qt::TopRightCorner);
 
-    auto syncCorner = [=,this] { corner->setVisible(ui->stats_widget->currentWidget() == ui->connections_tab); };
+    auto syncCorner = [=,this] {
+        const auto* current = ui->stats_widget->currentWidget();
+        connectionButtons->setVisible(current == ui->connections_tab);
+        logButtons->setVisible(current == ui->Logs);
+        corner->setVisible(current == ui->connections_tab || current == ui->Logs);
+    };
     connect(ui->stats_widget, &QTabWidget::currentChanged, this, [syncCorner](int) { syncCorner(); });
     syncCorner();
 

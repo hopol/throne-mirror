@@ -322,17 +322,25 @@ void MainWindow::on_menu_scan_qr_triggered() {
 }
 
 void MainWindow::on_menu_clear_test_result_triggered() {
-    auto entIDs = Configs::dataManager->groupsRepo->CurrentGroup()->Profiles();
-    auto ents = Configs::dataManager->profilesRepo->GetProfileBatch(entIDs);
-    if (ents.empty()) return;
+    clear_test_results(Configs::dataManager->groupsRepo->CurrentGroup()->Profiles());
+}
+
+int MainWindow::clear_test_results(const QList<int> &profileIds) {
+    const auto ents = Configs::dataManager->profilesRepo->GetProfileBatch(profileIds);
+    if (ents.empty()) return 0;
+    QSet<int> gids;
     for (const auto &ent: ents) {
         ent->ClearTestResults();
+        gids.insert(ent->gid);
     }
     Configs::dataManager->profilesRepo->SaveBatch(ents);
-    if (auto group = Configs::dataManager->groupsRepo->GetGroup(ents.first()->gid); group &&
-        group->calculated_column_width.size() > ProfilesTableModel::ColTestResult)
-        group->calculated_column_width[ProfilesTableModel::ColTestResult] = 0;
+    for (const int gid : gids) {
+        if (auto group = Configs::dataManager->groupsRepo->GetGroup(gid); group &&
+            group->calculated_column_width.size() > ProfilesTableModel::ColTestResult)
+            group->calculated_column_width[ProfilesTableModel::ColTestResult] = 0;
+    }
     refresh_proxy_list();
+    return static_cast<int>(ents.size());
 }
 
 void MainWindow::on_menu_select_all_triggered() {

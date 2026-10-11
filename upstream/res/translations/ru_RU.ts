@@ -2225,7 +2225,7 @@ Throne will restart to complete the restore.</source>
     </message>
 </context>
 <context>
-    <name>DialogHotkey</name>
+    <name>DialogIntegration</name>
     <message>
         <source>Hotkey</source>
         <translation>Горячие клавиши</translation>
@@ -6487,6 +6487,18 @@ Improves hole-punching reliability. Requires IPv4.</source>
 </context>
 <context>
     <name>MainWindow</name>
+    <message>
+        <source>Connect</source>
+        <translation>Подключить</translation>
+    </message>
+    <message>
+        <source>Disconnect</source>
+        <translation>Отключить</translation>
+    </message>
+    <message>
+        <source>Disconnecting</source>
+        <translation>Отключение</translation>
+    </message>
     <message>
         <source>Program</source>
         <translation>Программа</translation>

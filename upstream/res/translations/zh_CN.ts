@@ -381,6 +381,18 @@ It stays a preference, not a lock: if that profile stops working the selector st
 <context>
     <name>DialogBasicSettings</name>
     <message>
+        <source>Log Browser Font</source>
+        <translation>日志浏览器字体</translation>
+    </message>
+    <message>
+        <source>Log Browser Font Size</source>
+        <translation>日志浏览器字体大小</translation>
+    </message>
+    <message>
+        <source>Only monospaced fonts are listed. An unavailable family falls back to a built-in monospace list.</source>
+        <translation>仅列出等宽字体。所选字体不可用时，将按内置的等宽字体列表依次回退。</translation>
+    </message>
+    <message>
         <location filename="Throne-1.3.1/include/ui/setting/dialog_basic_settings.ui" line="20"/>
         <source>Basic Settings</source>
         <translation>基本设置</translation>
@@ -608,11 +620,6 @@ It stays a preference, not a lock: if that profile stops working the selector st
         <location filename="Throne-1.3.1/include/ui/setting/dialog_basic_settings.ui" line="457"/>
         <source>Max log lines</source>
         <translation>最多日志行数</translation>
-    </message>
-    <message>
-        <location filename="Throne-1.3.1/include/ui/setting/dialog_basic_settings.ui" line="474"/>
-        <source>Auto-scroll log</source>
-        <translation>自动滚动日志</translation>
     </message>
     <message>
         <location filename="Throne-1.3.1/include/ui/setting/dialog_basic_settings.ui" line="487"/>
@@ -2624,44 +2631,44 @@ Throne will restart to complete the restore.</source>
     </message>
 </context>
 <context>
-    <name>DialogHotkey</name>
+    <name>DialogIntegration</name>
     <message>
-        <location filename="Throne-1.3.1/include/ui/setting/dialog_hotkey.ui" line="14"/>
+        <location filename="Throne-1.3.1/include/ui/setting/dialog_integration.ui" line="14"/>
         <source>Hotkey</source>
         <translation>热键</translation>
     </message>
     <message>
-        <location filename="Throne-1.3.1/include/ui/setting/dialog_hotkey.ui" line="24"/>
+        <location filename="Throne-1.3.1/include/ui/setting/dialog_integration.ui" line="24"/>
         <source>Global</source>
         <translation>全局</translation>
     </message>
     <message>
-        <location filename="Throne-1.3.1/include/ui/setting/dialog_hotkey.ui" line="30"/>
+        <location filename="Throne-1.3.1/include/ui/setting/dialog_integration.ui" line="30"/>
         <source>Trigger main window</source>
         <translation>显示/隐藏主窗口</translation>
     </message>
     <message>
-        <location filename="Throne-1.3.1/include/ui/setting/dialog_hotkey.ui" line="43"/>
+        <location filename="Throne-1.3.1/include/ui/setting/dialog_integration.ui" line="43"/>
         <source>Show groups</source>
         <translation>显示分组</translation>
     </message>
     <message>
-        <location filename="Throne-1.3.1/include/ui/setting/dialog_hotkey.ui" line="56"/>
+        <location filename="Throne-1.3.1/include/ui/setting/dialog_integration.ui" line="56"/>
         <source>Show routes</source>
         <translation>显示路由</translation>
     </message>
     <message>
-        <location filename="Throne-1.3.1/include/ui/setting/dialog_hotkey.ui" line="69"/>
+        <location filename="Throne-1.3.1/include/ui/setting/dialog_integration.ui" line="69"/>
         <source>Proxy mode</source>
         <translation>代理模式</translation>
     </message>
     <message>
-        <location filename="Throne-1.3.1/include/ui/setting/dialog_hotkey.ui" line="82"/>
+        <location filename="Throne-1.3.1/include/ui/setting/dialog_integration.ui" line="82"/>
         <source>Toggle System Proxy</source>
         <translation>切换系统代理</translation>
     </message>
     <message>
-        <location filename="Throne-1.3.1/include/ui/setting/dialog_hotkey.ui" line="96"/>
+        <location filename="Throne-1.3.1/include/ui/setting/dialog_integration.ui" line="96"/>
         <source>Shortcuts</source>
         <translation>快捷键</translation>
     </message>
@@ -8022,6 +8029,46 @@ Improves hole-punching reliability. Requires IPv4.</source>
 </context>
 <context>
     <name>MainWindow</name>
+    <message>
+        <source>Connect</source>
+        <translation>连接</translation>
+    </message>
+    <message>
+        <source>Disconnect</source>
+        <translation>断开连接</translation>
+    </message>
+    <message>
+        <source>Disconnecting</source>
+        <translation>正在断开</translation>
+    </message>
+    <message>
+        <source>Disable Filter</source>
+        <translation>禁用筛选</translation>
+    </message>
+    <message>
+        <source>Filter logs</source>
+        <translation>筛选日志</translation>
+    </message>
+    <message>
+        <source>Match case</source>
+        <translation>区分大小写</translation>
+    </message>
+    <message>
+        <source>Regular expression</source>
+        <translation>正则表达式</translation>
+    </message>
+    <message>
+        <source>New logs are held while the view is scrolled up</source>
+        <translation>向上滚动查看时，新日志会暂存，不会显示</translation>
+    </message>
+    <message>
+        <source>Jump to latest</source>
+        <translation>回到最新</translation>
+    </message>
+    <message>
+        <source>Jump to latest (%1 new)</source>
+        <translation>回到最新（%1 条新日志）</translation>
+    </message>
     <message>
         <location filename="Throne-1.3.1/include/ui/mainwindow.ui" line="55"/>
         <location filename="Throne-1.3.1/include/ui/mainwindow.ui" line="683"/>

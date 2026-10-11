@@ -73,10 +73,11 @@ int MainWindow::get_profile_to_start() {
     return -1;
 }
 
-bool MainWindow::handleXrayGeoAssetError(const QString& error, const QString& contextName) {
+bool MainWindow::handleXrayGeoAssetError(const QString& error, const QString& contextName, bool prompt) {
     const bool refGeoip = error.contains("geoip.dat");
     const bool refGeosite = error.contains("geosite.dat");
     if (!refGeoip && !refGeosite) return false;
+    if (!prompt) return true;
 
     runOnUiThread([=, this] {
         if (m_xrayGeoAssetBusy) return;
@@ -149,22 +150,32 @@ bool MainWindow::handleXrayGeoAssetError(const QString& error, const QString& co
 }
 
 void MainWindow::profile_start(int _id) {
-    if (Configs::dataManager->settingsRepo->prepare_exit) return;
+    profile_start(StartRequest{_id});
+}
+
+void MainWindow::profile_start(const StartRequest &request) {
+    if (Configs::dataManager->settingsRepo->prepare_exit) {
+        emit start_finished(request.serial, request.profileId, StartOutcome::Exiting, {});
+        return;
+    }
 
     std::shared_ptr<Configs::Profile> ent = nullptr;
-    if (_id >= 0) {
-        ent = Configs::dataManager->profilesRepo->GetProfile(_id);
+    if (request.profileId >= 0) {
+        ent = Configs::dataManager->profilesRepo->GetProfile(request.profileId);
     } else {
         const int startId = get_profile_to_start();
         if (startId >= 0) {
             ent = Configs::dataManager->profilesRepo->GetProfile(startId);
         }
     }
-    if (ent == nullptr) return;
+    if (ent == nullptr) {
+        emit start_finished(request.serial, request.profileId, StartOutcome::NotFound, {});
+        return;
+    }
 
     last_running_profile_id = ent->id;
 
-    if (select_mode) {
+    if (select_mode && request.interactive) {
         emit profile_selected(ent->id);
         select_mode = false;
         refresh_status();
@@ -172,28 +183,38 @@ void MainWindow::profile_start(int _id) {
     }
 
     const auto group = Configs::dataManager->groupsRepo->GetGroup(ent->gid);
-    if (group == nullptr || group->archive) return;
+    if (group == nullptr || group->archive) {
+        emit start_finished(request.serial, ent->id, StartOutcome::GroupUnavailable, {});
+        return;
+    }
+
+    StartRequest resolved = request;
+    resolved.profileId = ent->id;
 
     auto *killSwitch = Sys::KillSwitch::instance();
     if (killSwitch->state() == Sys::KillSwitch::State::Arming) {
         // Only the latest request survives, so repeated clicks while arming start one profile.
-        const bool queued = m_killSwitchDeferredStart >= 0;
-        m_killSwitchDeferredStart = ent->id;
+        const bool queued = m_killSwitchDeferredStart.profileId >= 0;
+        if (queued) {
+            emit start_finished(m_killSwitchDeferredStart.serial, m_killSwitchDeferredStart.profileId, StartOutcome::Superseded, {});
+        }
+        m_killSwitchDeferredStart = resolved;
         if (!queued) {
             killSwitch->whenSettled(this, [this](bool) {
-                if (const int id = std::exchange(m_killSwitchDeferredStart, -1); id >= 0) profile_start(id);
+                if (const auto next = std::exchange(m_killSwitchDeferredStart, StartRequest{}); next.profileId >= 0) profile_start(next);
             });
         }
         return;
     }
     if (!killSwitch->allowsStart()) {
         MW_show_log(tr("[Kill switch] Not starting %1: the kill switch is not active.").arg(ent->outbound->DisplayTypeAndName()));
-        show_kill_switch_problem();
+        emit start_finished(request.serial, ent->id, StartOutcome::KillSwitchInactive, killSwitch->failureText());
+        if (request.interactive) show_kill_switch_problem();
         return;
     }
     if (guard_core_restart_pending() ||
         (killSwitch->state() == Sys::KillSwitch::State::Armed && core_lacks_guard_identity())) {
-        restart_core_for_guard(ent->id);
+        restart_core_for_guard(resolved);
         return;
     }
 
@@ -202,12 +223,11 @@ void MainWindow::profile_start(int _id) {
         const auto plan = Configs::PlanAutoSelector(ent);
         if (plan.error.isEmpty() && plan.needsRanking) {
             auto_selector_ranked = true;
-            const int startId = ent->id;
             runOnNewThread([=, this] {
                 rank_auto_selector(ent);
                 runOnUiThread([=, this] {
                     auto_selector_ranked = false;
-                    profile_start(startId);
+                    profile_start(resolved);
                 });
             });
             return;
@@ -217,9 +237,13 @@ void MainWindow::profile_start(int _id) {
 
     const auto result = Configs::BuildSingBoxConfig(ent);
     if (!result->error.isEmpty()) {
-        MessageBoxWarning(tr("BuildConfig return error"), result->error);
+        fail_start(resolved, StartOutcome::BuildFailed, tr("BuildConfig return error"), result->error);
         return;
     }
+    const auto finish = [=, this](StartOutcome outcome, const QString &error) {
+        if (!resolved.interactive && !error.isEmpty()) MW_show_log(error);
+        runOnUiThread([=, this] { emit start_finished(resolved.serial, resolved.profileId, outcome, error); });
+    };
     auto profile_start_stage2 = [=, this](const QPointer<RestartPrompt> &restartPrompt) {
         libcore::LoadConfigReq req;
         req.core_config = QJsonObject2QString(result->coreConfig, true).toStdString();
@@ -243,6 +267,8 @@ void MainWindow::profile_start(int _id) {
             if (!Sys::KillSwitch::instance()->permitExtraCore(result->extraCoreData->path)) {
                 runOnUiThread([restartPrompt] { if (restartPrompt) restartPrompt->dismiss(); });
                 MW_show_log(tr("[Kill switch] The extra core %1 could not be allowed through the kill switch.").arg(result->extraCoreData->path));
+                finish(StartOutcome::ExtraCoreBlocked, {});
+                if (!resolved.interactive) return false;
                 runOnUiThread([this] {
                     if (Sys::KillSwitch::instance()->state() == Sys::KillSwitch::State::Failed) {
                         show_kill_switch_problem();
@@ -264,13 +290,17 @@ void MainWindow::profile_start(int _id) {
         // Queued ahead of every dialog below, so none of them can be shown over the prompt.
         runOnUiThread([restartPrompt] { if (restartPrompt) restartPrompt->dismiss(); });
         if (!rpcOK) {
+            finish(StartOutcome::CoreUnavailable, {});
             return false;
         }
         if (!error.isEmpty()) {
-            if (handleXrayGeoAssetError(error, ent->outbound->DisplayTypeAndName())) {
+            if (handleXrayGeoAssetError(error, ent->outbound->DisplayTypeAndName(), resolved.interactive)) {
+                finish(StartOutcome::GeoAssetsMissing, error);
                 return false;
             }
             if (error.contains("Fwpm", Qt::CaseInsensitive)) {
+                finish(StartOutcome::StrictRouteUnavailable, error);
+                if (!resolved.interactive) return false;
                 runOnUiThread([=, this] {
                     MessageBoxWarning(
                         tr("Strict routing unavailable"),
@@ -281,6 +311,8 @@ void MainWindow::profile_start(int _id) {
                 return false;
             }
             if (error.contains("configure tun interface")) {
+                finish(StartOutcome::TunFailed, error);
+                if (!resolved.interactive) return false;
                 runOnUiThread([=, this] {
 
                     QMessageBox msg(
@@ -303,7 +335,8 @@ void MainWindow::profile_start(int _id) {
                 });
                 return false;
             }
-            runOnUiThread([=, this] { MessageBoxWarning("LoadConfig return error", error); });
+            finish(StartOutcome::StartFailed, error);
+            if (resolved.interactive) runOnUiThread([=, this] { MessageBoxWarning("LoadConfig return error", error); });
             return false;
         }
         Stats::trafficLooper->SetChainGroups(result->chainGroups);
@@ -346,6 +379,7 @@ void MainWindow::profile_start(int _id) {
             refresh_status();
             refresh_proxy_list({ent->id});
             refresh_auto_selector_view();
+            emit start_finished(resolved.serial, resolved.profileId, StartOutcome::Started, {});
 
             // "Only route advertised network" rejects this probe.
             if (exitIsEndpoint) return;
@@ -368,17 +402,18 @@ void MainWindow::profile_start(int _id) {
     };
 
     if (!mu_starting.tryLock()) {
-        MessageBoxWarning(software_name, tr("Another profile is starting..."));
+        fail_start(resolved, StartOutcome::Busy, software_name, tr("Another profile is starting..."));
         return;
     }
     if (!mu_stopping.tryLock()) {
-        MessageBoxWarning(software_name, tr("Another profile is stopping..."));
+        fail_start(resolved, StartOutcome::Busy, software_name, tr("Another profile is stopping..."));
         mu_starting.unlock();
         return;
     }
     mu_stopping.unlock();
 
     if (!Configs::dataManager->settingsRepo->core_running) {
+        defer_start_to_core(resolved);
         runOnThread(
             [=, this] {
                 MW_show_log(tr("Try to start the config, but the core has not listened to the RPC port, so restart it..."));
@@ -390,8 +425,9 @@ void MainWindow::profile_start(int _id) {
         return;
     }
 
-    const QPointer<RestartPrompt> restartPrompt =
-        new RestartPrompt(this, tr("If there is no response for a long time, it is recommended to restart the software."), 10000);
+    const QPointer<RestartPrompt> restartPrompt = resolved.interactive
+        ? new RestartPrompt(this, tr("If there is no response for a long time, it is recommended to restart the software."), 10000)
+        : nullptr;
 
     runOnUiThread([this] {
         m_profileConnecting = true;
@@ -400,7 +436,7 @@ void MainWindow::profile_start(int _id) {
 
     runOnNewThread([=, this] {
         if (running != nullptr) {
-            profile_stop(false, false, true);
+            profile_stop(false, false, true, resolved.interactive);
             mu_stopping.lock();
             mu_stopping.unlock();
         }
@@ -417,7 +453,7 @@ void MainWindow::profile_start(int _id) {
     });
 }
 
-void MainWindow::profile_stop(bool crash, bool block, bool manual) {
+void MainWindow::profile_stop(bool crash, bool block, bool manual, bool interactive) {
     if (running == nullptr) {
         return;
     }
@@ -434,7 +470,11 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
             const QString error = defaultClient->Stop(&rpcOK);
             runOnUiThread([restartPrompt] { if (restartPrompt) restartPrompt->dismiss(); });
             if (rpcOK && !error.isEmpty()) {
-                runOnUiThread([=,this] { MessageBoxWarning(tr("Stop return error"), error); });
+                if (interactive) {
+                    runOnUiThread([=,this] { MessageBoxWarning(tr("Stop return error"), error); });
+                } else {
+                    MW_show_log(tr("Stop return error") + ": " + error);
+                }
                 return false;
             } else if (!rpcOK) {
                 return false;
@@ -470,9 +510,11 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
 
         // runOnUiThread is a no-op before qApp exists, so the teardown must not chase this.
         QPointer<RestartPrompt> restartPrompt;
-        runOnUiThread([this, &restartPrompt] {
-            restartPrompt = new RestartPrompt(this, tr("If there is no response for a long time, it is recommended to restart the software."), 5000);
-        }, true);
+        if (interactive) {
+            runOnUiThread([this, &restartPrompt] {
+                restartPrompt = new RestartPrompt(this, tr("If there is no response for a long time, it is recommended to restart the software."), 5000);
+            }, true);
+        }
 
         // Snapshot: `running` is cleared below and a racing start can reassign it.
         const auto stopping = running;
@@ -502,8 +544,52 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
             refresh_proxy_list({id});
 
             mu_stopping.unlock();
+            emit stop_finished(id);
         }, true);
     }, block);
+}
+
+void MainWindow::fail_start(const StartRequest &request, StartOutcome outcome, const QString &title, const QString &error) {
+    emit start_finished(request.serial, request.profileId, outcome, error);
+    if (request.interactive) {
+        MessageBoxWarning(title, error);
+    } else {
+        MW_show_log(title + ": " + error);
+    }
+}
+
+void MainWindow::defer_start_to_core(const StartRequest &request) {
+    if (m_coreStartRequest.profileId >= 0) {
+        emit start_finished(m_coreStartRequest.serial, m_coreStartRequest.profileId, StartOutcome::Superseded, {});
+    }
+    m_coreStartRequest = request;
+}
+
+int MainWindow::resolve_last_profile() {
+    const auto &settings = Configs::dataManager->settingsRepo;
+    for (const int id : {settings->started_id, last_running_profile_id, settings->remember_id}) {
+        if (id >= 0 && Configs::dataManager->profilesRepo->GetProfile(id) != nullptr) return id;
+    }
+    return -1;
+}
+
+MainWindow::ConnectionState MainWindow::connection_state() const {
+    if (m_profileConnecting) return ConnectionState::Connecting;
+    if (m_profileDisconnecting) return ConnectionState::Stopping;
+    return running != nullptr ? ConnectionState::Running : ConnectionState::Idle;
+}
+
+quint64 MainWindow::next_start_serial() {
+    return ++m_startSerial;
+}
+
+void MainWindow::toggle_connection() {
+    if (select_mode || m_profileConnecting || m_profileDisconnecting) return;
+    if (running != nullptr) {
+        profile_stop(false, false, true);
+        return;
+    }
+    profile_start(resolve_last_profile());
 }
 
 void MainWindow::start_vpn_challenge_poll() {

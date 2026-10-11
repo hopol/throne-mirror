@@ -14,6 +14,7 @@
 #include <QThread>
 
 #include "include/api/RPC.h"
+#include "include/api/remote/Server.hpp"
 #include "include/configs/generate.h"
 #include "include/global/Configs.hpp"
 #include "include/global/HTTPRequestHelper.hpp"
@@ -27,7 +28,7 @@
 
 #include "include/ui/group/dialog_manage_groups.h"
 #include "include/ui/setting/dialog_basic_settings.h"
-#include "include/ui/setting/dialog_hotkey.h"
+#include "include/ui/setting/dialog_integration.h"
 #include "include/ui/setting/dialog_manage_routes.h"
 #include "include/ui/setting/dialog_otp_manager.h"
 #include "include/ui/setting/dialog_preset_settings.h"
@@ -86,10 +87,10 @@ void MainWindow::on_menu_otp_manager_triggered() {
     USE_DIALOG(DialogOtpManager)
 }
 
-void MainWindow::on_menu_hotkey_settings_triggered() {
+void MainWindow::on_menu_integration_settings_triggered() {
     if (dialog_is_using) return;
     dialog_is_using = true;
-    auto dialog = new DialogHotkey(this, getActionsForShortcut());
+    auto dialog = new DialogIntegration(this, getActionsForShortcut());
     connect(dialog, &QDialog::finished, this, [=,this]
     {
         dialog->deleteLater();
@@ -131,6 +132,8 @@ void MainWindow::prepare_exit()
     }
     Configs::dataManager->settingsRepo->prepare_exit = true;
     LOG_INFO("prepare_exit started, tearing down proxy/tun/core");
+    // Before the waits below: their nested event loops would dispatch API requests mid-teardown.
+    RemoteApi::Server::instance()->shutdown();
     // Unconditional: an uncheck may still have its clear queued.
     set_system_proxy(false, true);
     RegisterHiddenMenuShortcuts(true);
@@ -154,6 +157,40 @@ void MainWindow::prepare_exit()
 }
 
 void MainWindow::on_menu_exit_triggered() {
+    const bool restart = exit_reason == ExitReason::Restart || exit_reason == ExitReason::RestartWithTun ||
+                         exit_reason == ExitReason::RestartElevated;
+    const auto program = QApplication::applicationFilePath();
+    QStringList arguments;
+    if (restart) {
+        arguments = Configs::dataManager->settingsRepo->argv;
+        if (arguments.length() > 0) {
+            arguments.removeFirst();
+            arguments.removeAll("-tray");
+            arguments.removeAll("-flag_restart_tun_on");
+        }
+        if (exit_reason == ExitReason::RestartWithTun) arguments << "-flag_restart_tun_on";
+    }
+
+    bool relaunched = false;
+#ifdef Q_OS_WIN
+    if (exit_reason == ExitReason::RestartWithTun || exit_reason == ExitReason::RestartElevated) {
+        // Asked before the teardown so a declined UAC prompt leaves this instance running; the new one waits for this pid to exit.
+        // The UAC wait pumps messages with the UI still live, so a second exit request must not launch a second instance.
+        static bool elevating = false;
+        if (elevating) return;
+        elevating = true;
+        const auto elevatedArguments = arguments + QStringList{QString("-wait_pid=%1").arg(QCoreApplication::applicationPid())};
+        const bool launched = WinCommander::runProcessElevated(program, elevatedArguments, QApplication::applicationDirPath(), 1, false) == 0;
+        elevating = false;
+        if (!launched) {
+            exit_reason = ExitReason::None;
+            MW_show_log(tr("Restart as administrator was cancelled, Throne keeps running"));
+            return;
+        }
+        relaunched = true;
+    }
+#endif
+
     prepare_exit();
     if (exit_reason == ExitReason::RunUpdater) {
         QDir::setCurrent(QApplication::applicationDirPath());
@@ -163,28 +200,9 @@ void MainWindow::on_menu_exit_triggered() {
 #else
         QProcess::startDetached("./updater", QStringList{});
 #endif
-    } else if (exit_reason == ExitReason::Restart || exit_reason == ExitReason::RestartWithTun ||
-               exit_reason == ExitReason::RestartElevated) {
+    } else if (restart && !relaunched) {
         QDir::setCurrent(QApplication::applicationDirPath());
-
-        auto arguments = Configs::dataManager->settingsRepo->argv;
-        if (arguments.length() > 0) {
-            arguments.removeFirst();
-            arguments.removeAll("-tray");
-            arguments.removeAll("-flag_restart_tun_on");
-        }
-        auto program = QApplication::applicationFilePath();
-
-        if (exit_reason == ExitReason::RestartWithTun) arguments << "-flag_restart_tun_on";
-        if (exit_reason == ExitReason::Restart) {
-            QProcess::startDetached(program, arguments);
-        } else {
-#ifdef Q_OS_WIN
-            WinCommander::runProcessElevated(program, arguments, "", 1, false);
-#else
-            QProcess::startDetached(program, arguments);
-#endif
-        }
+        QProcess::startDetached(program, arguments);
     }
     QCoreApplication::quit();
 }
@@ -198,13 +216,19 @@ void MainWindow::toggle_system_proxy() {
     }
 }
 
-bool MainWindow::get_elevated_permissions() {
+void MainWindow::toggle_tun() {
+    if (m_profileConnecting || m_profileDisconnecting) return;
+    set_spmode_vpn(!Configs::dataManager->settingsRepo->spmode_vpn);
+}
+
+bool MainWindow::get_elevated_permissions(bool interactive) {
     if (Configs::dataManager->settingsRepo->disable_privilege_req)
     {
         MW_show_log(tr("User opted for no privilege req, some features may not work"));
         return true;
     }
     if (Configs::IsAdmin()) return true;
+    if (!interactive) return false;
 #ifdef NKR_ELEVATION_HINT
     MessageBoxWarning(software_name, tr("This installation cannot grant the core privileges by itself.") + "\n\n" + NKR_ELEVATION_HINT);
     return false;
@@ -295,52 +319,74 @@ void MainWindow::set_system_proxy(bool enable, bool wait) {
 }
 
 void MainWindow::set_spmode_system_proxy(bool enable, bool save) {
-    if (enable && Configs::dataManager->settingsRepo->disable_mixed_inbound) {
-        runOnUiThread([=, this] {
-           MessageBoxWarning("Invalid Operation", "Cannot set system proxy when mixed inbound is disabled.");
-        });
+    set_spmode_system_proxy(enable, ModeChange{.save = save});
+}
+
+bool MainWindow::set_spmode_system_proxy(bool enable, const ModeChange &change) {
+    const auto &settings = Configs::dataManager->settingsRepo;
+    if (enable && settings->disable_mixed_inbound) {
+        if (change.interactive) {
+            runOnUiThread([=, this] {
+               MessageBoxWarning("Invalid Operation", "Cannot set system proxy when mixed inbound is disabled.");
+            });
+        }
         ui->checkBox_SystemProxy->setChecked(false);
-        return;
+        return false;
     }
-    Configs::dataManager->settingsRepo->spmode_system_proxy = enable;
+    settings->spmode_system_proxy = enable;
+    bool restarted = false;
     if (running) {
         set_system_proxy(enable);
-        if (!enable && Configs::dataManager->settingsRepo->reset_proxy_on_disable_sp) {
-            profile_start(running->id);
+        if (!enable && settings->reset_proxy_on_disable_sp && change.restart) {
+            profile_start(StartRequest{running->id, change.interactive, change.restartSerial});
+            restarted = true;
         }
     }
 
-    if (save) {
-        Configs::dataManager->settingsRepo->remember_system_proxy = enable;
-        Configs::dataManager->settingsRepo->Save();
+    if (change.save) {
+        settings->remember_system_proxy = enable;
+        settings->Save();
     }
 
     refresh_status();
+    return restarted;
 }
 
 void MainWindow::set_spmode_vpn(bool enable, bool save) {
-    if (enable == Configs::dataManager->settingsRepo->spmode_vpn) return;
+    set_spmode_vpn(enable, ModeChange{.save = save});
+}
 
-    if (enable) {
-        bool requestPermission = !Configs::IsAdmin();
-        if (requestPermission) {
-            if (!get_elevated_permissions()) {
-                refresh_status();
-                return;
-            }
-        }
+bool MainWindow::set_spmode_vpn(bool enable, const ModeChange &change) {
+    const auto &settings = Configs::dataManager->settingsRepo;
+    if (enable == settings->spmode_vpn) return false;
+
+    if (enable && !Configs::IsAdmin() && !get_elevated_permissions(change.interactive)) {
+        refresh_status();
+        return false;
     }
 
-    if (save) {
+    if (change.save) {
         // Written here, after the elevation check, so a failed enable is not remembered.
-        Configs::dataManager->settingsRepo->remember_tun = enable;
-        Configs::dataManager->settingsRepo->Save();
+        settings->remember_tun = enable;
+        settings->Save();
     }
 
-    Configs::dataManager->settingsRepo->spmode_vpn = enable;
+    settings->spmode_vpn = enable;
     refresh_status();
 
-    if (Configs::dataManager->settingsRepo->started_id >= 0) profile_start(Configs::dataManager->settingsRepo->started_id);
+    if (!change.restart || settings->started_id < 0) return false;
+    profile_start(StartRequest{settings->started_id, change.interactive, change.restartSerial});
+    return true;
+}
+
+bool MainWindow::choose_route(int routeId, bool interactive, quint64 restartSerial) {
+    const auto &settings = Configs::dataManager->settingsRepo;
+    if (settings->current_route_id == routeId) return false;
+    settings->current_route_id = routeId;
+    settings->Save();
+    if (settings->started_id < 0) return false;
+    profile_start(StartRequest{settings->started_id, interactive, restartSerial});
+    return true;
 }
 
 bool MainWindow::StopVPNProcess() {
@@ -373,7 +419,7 @@ void MainWindow::kill_switch_state_changed() {
     if (!failed && m_killSwitchDialog) m_killSwitchDialog->close();
     if (enteredFailed) show_kill_switch_problem();
     if (enteredArmed && !guard_core_restart_pending() && core_lacks_guard_identity()) {
-        restart_core_for_guard(Configs::dataManager->settingsRepo->started_id);
+        restart_core_for_guard(StartRequest{Configs::dataManager->settingsRepo->started_id});
     }
 }
 
@@ -419,8 +465,11 @@ void MainWindow::show_kill_switch_problem() {
             return;
         }
 #ifdef Q_OS_WIN
-        exit_reason = ExitReason::RestartElevated;
-        on_menu_exit_triggered();
+        // Queued: ShellExecuteEx's UAC pump runs this box's deleteLater, so exiting from here frees it under QMessageBox (#1961).
+        QMetaObject::invokeMethod(this, [this] {
+            exit_reason = ExitReason::RestartElevated;
+            on_menu_exit_triggered();
+        }, Qt::QueuedConnection);
 #else
         // Otherwise the core restarts once it is privileged, and CoreStarted retries.
         if (get_elevated_permissions()) Sys::KillSwitch::instance()->apply();
@@ -473,13 +522,19 @@ bool MainWindow::guard_core_restart_pending() const {
     return m_guardCoreRestart.isValid() && !m_guardCoreRestart.hasExpired(kRestartWindowMs);
 }
 
-void MainWindow::restart_core_for_guard(int startId) {
+void MainWindow::restart_core_for_guard(const StartRequest &request) {
+    bool haveCore;
     {
         // The IPC handler takes this slot under the same lock when the new core connects.
         QMutexLocker lock(&coreProcessMutex);
-        if (core_process == nullptr) return;
-        core_process->start_profile_when_core_is_up = startId;
+        haveCore = core_process != nullptr;
+        if (haveCore) core_process->start_profile_when_core_is_up = request.profileId;
     }
+    if (!haveCore) {
+        emit start_finished(request.serial, request.profileId, StartOutcome::CoreUnavailable, {});
+        return;
+    }
+    defer_start_to_core(request);
     if (guard_core_restart_pending()) return;
     m_guardCoreRestart.start();
     MW_show_log(tr("[Kill switch] Restarting the core so that its own traffic passes the kill switch..."));

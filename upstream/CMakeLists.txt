@@ -127,6 +127,9 @@ set(PROJECT_SOURCES
         3rdparty/quirc/quirc.c
         3rdparty/quirc/version_db.c
 
+        3rdparty/monocypher/monocypher.c
+        3rdparty/monocypher/monocypher.h
+
         3rdparty/SQLiteCpp/src/Backup.cpp
         3rdparty/SQLiteCpp/src/Column.cpp
         3rdparty/SQLiteCpp/src/Database.cpp
@@ -137,6 +140,13 @@ set(PROJECT_SOURCES
         3rdparty/SQLiteCpp/src/Transaction.cpp
 
         src/api/RPC.cpp
+        include/api/remote/Protocol.hpp
+        src/api/remote/Protocol.cpp
+        include/api/remote/Message.hpp
+        src/api/remote/Message.cpp
+        include/api/remote/Server.hpp
+        src/api/remote/Server.cpp
+        src/api/remote/Config.cpp
 
         src/stats/traffic/TrafficLooper.cpp
         include/stats/traffic/TrafficStatsManager.hpp
@@ -194,6 +204,9 @@ set(PROJECT_SOURCES
         src/ui/mainWindow/mainwindow_autoselector.cpp
         src/ui/mainWindow/mainwindow_scanner.cpp
         src/ui/mainWindow/TestRunner.cpp
+        include/api/remote/Router.hpp
+        src/api/remote/Router.cpp
+        src/api/remote/RouterTests.cpp
         include/ui/mainWindow/MainWindowInternal.h
         include/ui/mainWindow/TestRunner.h
         include/ui/mainwindow.h
@@ -447,9 +460,9 @@ set(PROJECT_SOURCES
         src/ui/stats/MiniChartWidget.cpp
         include/ui/stats/MiniChartWidget.h
 
-        src/ui/setting/dialog_hotkey.cpp
-        include/ui/setting/dialog_hotkey.h
-        include/ui/setting/dialog_hotkey.ui
+        src/ui/setting/dialog_integration.cpp
+        include/ui/setting/dialog_integration.h
+        include/ui/setting/dialog_integration.ui
 
         src/ui/profile/ProxyItem.cpp
         include/ui/profile/ProxyItem.h
@@ -674,6 +687,7 @@ if (WIN32 AND MSVC)
     set_target_properties(Throne PROPERTIES UNITY_BUILD ON)
 endif ()
 set_property(SOURCE "3rdparty/SQLiteCpp/src/sqlite3.c" PROPERTY SKIP_UNITY_BUILD_INCLUSION ON)
+set_property(SOURCE "3rdparty/monocypher/monocypher.c" PROPERTY SKIP_UNITY_BUILD_INCLUSION ON)
 
 # Verified to link. OMIT_VIRTUALTABLE/VIEW/ANALYZE/CTE/WINDOWFUNC/DECLTYPE all break this build.
 target_compile_definitions(Throne PRIVATE

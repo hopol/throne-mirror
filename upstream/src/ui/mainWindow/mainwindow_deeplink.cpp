@@ -1,6 +1,7 @@
 #include "include/ui/mainwindow.h"
 
 #include <algorithm>
+#include <utility>
 
 #include <QBuffer>
 #include <QFileInfo>
@@ -11,6 +12,7 @@
 #include <QUrl>
 
 #include "3rdparty/QrDecoder.h"
+#include "include/api/remote/Server.hpp"
 #include "include/configs/sub/GroupUpdater.hpp"
 #include "include/configs/sub/RouteUpdater.hpp"
 #include "include/database/GroupsRepo.h"
@@ -291,7 +293,11 @@ void MainWindow::dialog_message_impl(MwMessage cmd, const QStringList &args) {
             icon_status.reset();
         }
         if (changed(MwArg::MaxLogLines)) {
-            qvLogDocument->setMaximumBlockCount(settings->max_log_line);
+            trimLogLines();
+            rebuildLogView();
+        }
+        if (changed(MwArg::LogFont)) {
+            applyLogBrowserFont();
         }
         if (changed(MwArg::DisableTray)) {
             tray->setVisible(!settings->disable_tray);
@@ -315,6 +321,7 @@ void MainWindow::dialog_message_impl(MwMessage cmd, const QStringList &args) {
         auto suggestRestartProxy = settings->Save();
         Throne::PeriodicRunner::instance()->CheckNow();
         if (changed(MwArg::KillSwitch) || changed(MwArg::Vpn)) Sys::KillSwitch::instance()->apply();
+        if (changed(MwArg::RemoteApi)) RemoteApi::Server::instance()->apply(RemoteApi::ConfigFromSettings());
         if (changed(MwArg::Route)) {
             settings->Save();
             suggestRestartProxy = true;
@@ -385,8 +392,13 @@ void MainWindow::dialog_message_impl(MwMessage cmd, const QStringList &args) {
             set_spmode_vpn(true, settings->flag_restart_tun_on);
             settings->flag_restart_tun_on = false;
         }
-        if (auto id = args.value(0).toInt(); id >= 0) {
-            profile_start(id);
+        {
+            const int id = args.value(0).toInt();
+            const auto request = std::exchange(m_coreStartRequest, StartRequest{});
+            if (request.profileId >= 0 && request.profileId != id) {
+                emit start_finished(request.serial, request.profileId, StartOutcome::Superseded, {});
+            }
+            if (id >= 0) profile_start(request.profileId == id ? request : StartRequest{id});
         }
         refresh_status();
         break;

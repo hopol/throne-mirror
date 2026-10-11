@@ -114,6 +114,9 @@ namespace Configs
         static SubscriptionOptions FromJson(const QJsonObject &json);
     };
 
+    // A speed-test result such as "48.3 Mbps"; -1 for "N/A", 0 when empty.
+    double bitrateToBps(const QString &str);
+
     class Group {
     public:
         QMutex mutex;

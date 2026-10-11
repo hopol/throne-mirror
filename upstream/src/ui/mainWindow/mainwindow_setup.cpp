@@ -2,6 +2,8 @@
 
 #include "include/ui/mainWindow/MainWindowInternal.h"
 #include "include/api/RPC.h"
+#include "include/api/remote/Router.hpp"
+#include "include/api/remote/Server.hpp"
 // Full definition: MainWindow's destructor lives here and destroys the unique_ptr.
 #include "include/ui/mainWindow/TestRunner.h"
 
@@ -167,11 +169,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     ui->splitter->restoreState(DecodeB64IfValid(Configs::dataManager->settingsRepo->splitter_state));
     setLogHighlighter(themeUsesDarkLog(Configs::dataManager->settingsRepo->theme));
-    qvLogDocument->setUndoRedoEnabled(false);
-    qvLogDocument->setMaximumBlockCount(Configs::dataManager->settingsRepo->max_log_line);
-    ui->masterLogBrowser->setUndoRedoEnabled(false);
-    ui->masterLogBrowser->setDocument(qvLogDocument);
-    applyLogBrowserFont();
+    setupLogView();
     updateLogFilterFields();
     runOnThread([=, this] {
         log_process_loop();
@@ -485,7 +483,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     });
     connect(ui->profilesTableView->horizontalHeader(), &QHeaderView::sectionResized, this, [=, this](int, int, int) {
         auto group = Configs::dataManager->groupsRepo->CurrentGroup();
-        if (Configs::dataManager->settingsRepo->refreshing_group || group == nullptr) return;
+        if (m_adjustingColumns || Configs::dataManager->settingsRepo->refreshing_group || group == nullptr) return;
         group->column_width.clear();
         for (int i = 0; i < ui->profilesTableView->horizontalHeader()->count(); i++) {
             group->column_width.push_back(ui->profilesTableView->horizontalHeader()->sectionSize(i));
@@ -679,6 +677,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         if (!ui->profilesTableView->isVisible()) return;
         refresh_proxy_list_column_size();
     });
+    ui->profilesTableView->viewport()->installEventFilter(this);
 
     auto *filterHeader = static_cast<ProfilesTableFilterHeader*>(ui->profilesTableView->horizontalHeader());
     filterHeader->setLastFilterColumn(Configs::dataManager->settingsRepo->last_filter_column);
@@ -728,6 +727,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     trayMenu = new QMenu();
     trayMenu->addAction(ui->actionShow_window);
     trayMenu->addSeparator();
+
+    trayConnectAction = new QAction(tr("Connect"), trayMenu);
+    connect(trayConnectAction, &QAction::triggered, this, [this]() {
+        if (running != nullptr) profile_stop(false, false, true);
+        else profile_start();
+    });
+    trayMenu->addAction(trayConnectAction);
+    trayMenu->addSeparator();
+
     trayMenu->addAction(ui->actionStart_with_system);
     trayMenu->addAction(ui->actionRemember_last_proxy);
     trayMenu->addAction(ui->actionAllow_LAN);
@@ -955,30 +963,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             action->setData(route->id);
             action->setCheckable(true);
             action->setChecked(Configs::dataManager->settingsRepo->current_route_id == route->id);
-            connect(action, &QAction::triggered, this, [=,this]()
-            {
-                auto routeID = action->data().toInt();
-                if (Configs::dataManager->settingsRepo->current_route_id == routeID) return;
-                Configs::dataManager->settingsRepo->current_route_id = routeID;
-                Configs::dataManager->settingsRepo->Save();
-                if (Configs::dataManager->settingsRepo->started_id >= 0) profile_start(Configs::dataManager->settingsRepo->started_id);
-            });
+            connect(action, &QAction::triggered, this, [=,this]() { choose_route(action->data().toInt()); });
             ui->menuRouting_Menu->addAction(action);
         }
     });
-    connect(ui->actionClear_Test_Result, &QAction::triggered, this, [=, this]() {
-        auto entIDs = get_now_selected_list();
-        auto ents = Configs::dataManager->profilesRepo->GetProfileBatch(entIDs);
-        if (ents.empty()) return;
-        for (const auto &ent: ents) {
-            ent->ClearTestResults();
-        }
-        Configs::dataManager->profilesRepo->SaveBatch(ents);
-        if (auto group = Configs::dataManager->groupsRepo->GetGroup(ents.first()->gid); group &&
-            group->calculated_column_width.size() > ProfilesTableModel::ColTestResult)
-            group->calculated_column_width[ProfilesTableModel::ColTestResult] = 0;
-        refresh_proxy_list();
-    });
+    connect(ui->actionClear_Test_Result, &QAction::triggered, this, [=, this]() { clear_test_results(get_now_selected_list()); });
     connect(ui->actionUrl_Test_Selected, &QAction::triggered, this, [=,this]() {
         testRunner->runUrlTests(get_now_selected_list());
     });
@@ -1178,6 +1167,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             clearRestartNeeded();
         }
     });
+
+    const QPointer<RemoteApi::Router> apiRouter = new RemoteApi::Router(this);
+    RemoteApi::Server::instance()->setDispatcher([apiRouter](const RemoteApi::Request &request, const RemoteApi::Responder &respond) {
+        if (apiRouter) apiRouter->dispatch(request, respond);
+        else respond(RemoteApi::Response::Error(503, "exiting", "Throne is shutting down"));
+    });
+    RemoteApi::Server::instance()->apply(RemoteApi::ConfigFromSettings());
 }
 
 MainWindow::~MainWindow() {

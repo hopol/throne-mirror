@@ -24,6 +24,8 @@ QStringList MainWindow::RegisterHotkey(bool unregister) {
         {"show-routes", tr("Show routes"), QKeySequence(settings->hotkey_route)},
         {"proxy-mode-menu", tr("Proxy mode"), QKeySequence(settings->hotkey_system_proxy_menu)},
         {"toggle-system-proxy", tr("Toggle System Proxy"), QKeySequence(settings->hotkey_toggle_system_proxy)},
+        {"toggle-connection", tr("Start/Stop Profile"), QKeySequence(settings->hotkey_toggle_connection)},
+        {"toggle-tun", tr("Toggle Tun Mode"), QKeySequence(settings->hotkey_toggle_tun)},
     };
     const auto failures = globalHotkeys->setActions(actions);
 
@@ -168,5 +170,9 @@ void MainWindow::HotkeyEvent(const QString &id) {
         ui->menu_spmode->popup(QCursor::pos());
     } else if (id == "toggle-system-proxy") {
         toggle_system_proxy();
+    } else if (id == "toggle-connection") {
+        toggle_connection();
+    } else if (id == "toggle-tun") {
+        toggle_tun();
     }
 }

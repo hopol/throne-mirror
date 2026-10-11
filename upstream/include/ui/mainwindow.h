@@ -16,6 +16,7 @@
 
 #ifndef MW_INTERFACE
 
+#include <deque>
 #include <optional>
 #include <QKeyEvent>
 #include "include/ui/widget/TrayIcon.hpp"
@@ -56,6 +57,10 @@ namespace Configs_sys {
 
 namespace Configs {
     enum simpleAction : int;
+}
+
+namespace RemoteApi {
+    class Router;
 }
 
 class QMessageBox;
@@ -101,6 +106,40 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
+    enum class ConnectionState { Idle, Connecting, Running, Stopping };
+
+    enum class StartOutcome {
+        Started,
+        Exiting,
+        NotFound,
+        GroupUnavailable,
+        KillSwitchInactive,
+        Superseded,
+        CoreUnavailable,
+        BuildFailed,
+        Busy,
+        ExtraCoreBlocked,
+        GeoAssetsMissing,
+        StrictRouteUnavailable,
+        TunFailed,
+        StartFailed,
+    };
+
+    struct StartRequest {
+        int profileId = -1;
+        // Unattended callers get every failure through start_finished and the log, never a dialog.
+        bool interactive = true;
+        quint64 serial = 0;
+    };
+
+    struct ModeChange {
+        bool save = true;
+        // Unattended callers get no dialog or elevation prompt, and their restart is an unattended StartRequest carrying restartSerial.
+        bool interactive = true;
+        bool restart = true;
+        quint64 restartSerial = 0;
+    };
+
     explicit MainWindow(QWidget *parent = nullptr);
 
     ~MainWindow() override;
@@ -132,9 +171,18 @@ public:
 
     void profile_start(int _id = -1);
 
-    void profile_stop(bool crash = false, bool block = false, bool manual = false);
+    void profile_start(const StartRequest &request);
+
+    void profile_stop(bool crash = false, bool block = false, bool manual = false, bool interactive = true);
 
     int get_profile_to_start();
+
+    // Started, then last running, then remembered profile; unlike get_profile_to_start(), ignores the table selection.
+    int resolve_last_profile();
+
+    ConnectionState connection_state() const;
+
+    quint64 next_start_serial();
 
     void set_spmode_system_proxy(bool enable, bool save = true);
 
@@ -142,7 +190,12 @@ public:
 
     void set_spmode_vpn(bool enable, bool save = true);
 
-    bool get_elevated_permissions();
+    // Each returns whether it restarted the profile.
+    bool set_spmode_system_proxy(bool enable, const ModeChange &change);
+
+    bool set_spmode_vpn(bool enable, const ModeChange &change);
+
+    bool get_elevated_permissions(bool interactive = true);
 
     void start_select_mode(QObject *context, const std::function<void(int)> &callback);
 
@@ -180,6 +233,12 @@ signals:
 
     void profile_selected(int id);
 
+    void connection_state_changed(MainWindow::ConnectionState state);
+
+    void start_finished(quint64 serial, int profileId, MainWindow::StartOutcome outcome, const QString &error);
+
+    void stop_finished(int profileId);
+
 public slots:
 
     void on_commitDataRequest();
@@ -204,7 +263,7 @@ private slots:
 
     void on_menu_scanner_triggered();
 
-    void on_menu_hotkey_settings_triggered();
+    void on_menu_integration_settings_triggered();
 
     void on_menu_add_from_input_triggered();
 
@@ -262,11 +321,11 @@ private:
     ProfilesFilterProxyModel *profilesFilterModel = nullptr;
     TrayIcon *tray;
     QMenu *trayMenu = nullptr;
+    QAction *trayConnectAction = nullptr;
     QPointer<TrayProfileSelector> traySelector;
     void openTraySelector(bool routing);
     QPointer<TrayOtpCodes> trayOtpCodes;
     void openTrayOtpCodes();
-    QShortcut *shortcut_esc = new QShortcut(QKeySequence::Cancel, this);
     QThreadPool *parallelCoreCallPool = new QThreadPool(this);
     std::unique_ptr<TestRunner> testRunner;
     Configs_sys::CoreProcess *core_process = nullptr;
@@ -281,6 +340,8 @@ private:
     int last_running_profile_id = -1;
     bool m_profileConnecting = false;
     bool m_profileDisconnecting = false;
+    ConnectionState m_lastConnectionState = ConnectionState::Idle;
+    quint64 m_startSerial = 0;
     bool m_xrayGeoAssetBusy = false;
     bool m_ruleSetUpdateBusy = false;
     QString traffic_update_cache;
@@ -306,6 +367,14 @@ private:
     QIcon connectionCollapseIcon;
     int toolTipID;
     SpeedWidget *speedChartWidget;
+    struct LiveRates {
+        qint64 proxyUp = 0;
+        qint64 proxyDown = 0;
+        qint64 directUp = 0;
+        qint64 directDown = 0;
+    };
+    LiveRates m_liveRates;
+    QElapsedTimer m_liveRatesAt;
     class RuntimeStatsWidget *runtimeStatsWidget = nullptr;
     std::atomic<qint64> lastUpdatedMs = QDateTime::currentMSecsSinceEpoch();
     DataViewHtmlGenerator dataViewHtmlGenerator_;
@@ -336,6 +405,20 @@ private:
     QString logPendingText;
     bool logFlushScheduled = false;
 
+    // UI-thread view state. m_logLines is what the view renders (capped at max_log_line);
+    // while the user is scrolled up, arrivals wait in m_logHeld so the view stays frozen.
+    struct LogLine {
+        QString text;
+        bool visible = true;
+    };
+    std::deque<LogLine> m_logLines;
+    std::deque<QString> m_logHeld;
+    bool m_logFollow = true;
+    QRegularExpression m_logSearch;
+    QTimer *m_logSearchDebounce = nullptr;
+    QToolButton *logFilterButton = nullptr;
+    QToolButton *logJumpLatestButton = nullptr;
+
     struct LogFilter {
         bool enableInclude = false;
         bool enableExclude = false;
@@ -351,6 +434,21 @@ private:
 
     // UI thread only.
     void flush_log_batch();
+
+    void setupLogView();
+
+    void releaseHeldLogs();
+
+    // Caps both queues at max_log_line; returns how many dropped lines were visible (rendered blocks).
+    int trimLogLines();
+
+    void rebuildLogView();
+
+    void applyLogSearch();
+
+    void setLogFilterVisible(bool visible);
+
+    void updateLogStatus();
 
     bool should_print_log(const QString &log, const LogFilter &filter);
 
@@ -377,6 +475,12 @@ private:
     void focusProfilesTable(bool selectFirst);
 
     void clearUnavailableProfiles(bool confirm = true, QList<int> profileIDs = {});
+
+    // Returns how many profiles it cleared.
+    int clear_test_results(const QList<int> &profileIds);
+
+    // Returns whether it restarted the profile.
+    bool choose_route(int routeId, bool interactive = true, quint64 restartSerial = 0);
 
     void dialog_message_impl(MwMessage cmd, const QStringList &args);
 
@@ -414,8 +518,6 @@ private:
 
     void hideEvent(QHideEvent *event) override;
 
-    void resizeEvent(QResizeEvent *event) override;
-
     void syncConnectionViewState();
 
     void dragEnterEvent(QDragEnterEvent *event);
@@ -435,6 +537,14 @@ private:
     bool m_adjustingColumns = false;
 
     void HotkeyEvent(const QString &id);
+
+    void toggle_connection();
+
+    void toggle_tun();
+
+    void fail_start(const StartRequest &request, StartOutcome outcome, const QString &title, const QString &error);
+
+    void defer_start_to_core(const StartRequest &request);
 
     void RegisterHiddenMenuShortcuts(bool unregister = false);
     void registerMenuShortcuts(QMenu *menu, QSet<QKeySequence> &claimed);
@@ -458,7 +568,7 @@ private:
 
     bool auto_selector_ranked = false;
 
-    bool handleXrayGeoAssetError(const QString& error, const QString& contextName);
+    bool handleXrayGeoAssetError(const QString& error, const QString& contextName, bool prompt = true);
 
     void url_test_current();
 
@@ -506,13 +616,15 @@ private:
 
     bool guard_core_restart_pending() const;
 
-    // The restarted core starts startId through CoreStarted; a start requested meanwhile replaces it.
-    void restart_core_for_guard(int startId);
+    // The restarted core starts the request through CoreStarted; a start requested meanwhile replaces it.
+    void restart_core_for_guard(const StartRequest &request);
 
     QPointer<QMessageBox> m_killSwitchDialog;
     bool m_killSwitchWasFailed = false;
     bool m_killSwitchWasArmed = false;
-    int m_killSwitchDeferredStart = -1;
+    StartRequest m_killSwitchDeferredStart;
+    // CoreStarted carries only a profile id, so the rest of the request waits here.
+    StartRequest m_coreStartRequest;
     QElapsedTimer m_guardCoreRestart;
 
     QTimer *m_vpnChallengeTimer = nullptr;
@@ -580,6 +692,7 @@ private:
     void refreshConnectionIcons();
 
     friend class TestRunner;
+    friend class RemoteApi::Router;
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;

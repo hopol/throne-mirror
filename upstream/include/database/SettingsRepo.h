@@ -109,9 +109,11 @@ namespace Configs {
         QStringList log_include_regex = {};
         QStringList log_exclude_keyword = {};
         QStringList log_exclude_regex = {};
-        bool log_auto_scroll = true;
         bool start_minimal = false;
-        int max_log_line = 200;
+        int max_log_line = 500;
+        // Log view font; empty family / 0 size fall back to the built-in monospace list / the app font size.
+        QString log_font_family = "";
+        int log_font_size = 0;
         // On-disk diagnostic log only; log_level is the core's browser verbosity.
         QString log_file_level = "debug";
         QString splitter_state = "";
@@ -166,6 +168,14 @@ namespace Configs {
         bool disable_run_admin = false; // windows only
         bool use_mozilla_certs = false;
         bool kill_switch = false;
+
+        // Remote API
+        bool remote_api_enable = false;
+        bool remote_api_lan = false;
+        int remote_api_port = 9095;
+        QString remote_api_key = "";
+        // CIDRs separated by commas or whitespace; empty allows every LAN address.
+        QString remote_api_allow = "";
 
         // Remember
         bool remember_system_proxy = false;
@@ -270,6 +280,8 @@ namespace Configs {
         QString hotkey_route = "";
         QString hotkey_system_proxy_menu = "";
         QString hotkey_toggle_system_proxy = "";
+        QString hotkey_toggle_connection = "";
+        QString hotkey_toggle_tun = "";
 
         // Core
         int core_box_clash_api = -9090;

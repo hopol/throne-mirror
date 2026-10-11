@@ -213,32 +213,19 @@ void MainWindow::refresh_status(const QString &traffic_update) {
         return tt.join(isTray ? "\n" : " ");
     };
 
-    auto icon_status_new = Icon::TrayIconStatus::None;
-
-    if (running != nullptr) {
-        if (settings->spmode_vpn) {
-            icon_status_new = Icon::TrayIconStatus::Vpn;
-        } else if (settings->spmode_system_proxy) {
-            icon_status_new = Icon::TrayIconStatus::SystemProxy;
-        } else {
-            icon_status_new = Icon::TrayIconStatus::Running;
-        }
-    }
-
     setWindowTitle(make_title(false));
-    if (icon_status_new != icon_status) QApplication::setWindowIcon(GetTaskbarIcon(icon_status_new));
-
-    if (tray != nullptr) {
-        tray->setToolTip(make_title(true));
-        if (icon_status_new != icon_status) tray->setIcon(Icon::GetTrayIcon(icon_status_new));
-    }
-
-    icon_status = icon_status_new;
+    if (tray != nullptr) tray->setToolTip(make_title(true));
 
     refresh_startstop_button();
 }
 
 void MainWindow::refresh_startstop_button() {
+    // Every change to the start/stop flags or `running` is followed by a call here, on the UI thread.
+    if (const auto connState = connection_state(); connState != m_lastConnectionState) {
+        m_lastConnectionState = connState;
+        emit connection_state_changed(connState);
+    }
+
     auto *btn = ui->toolButton_startstop;
     if (btn == nullptr) return;
 
@@ -272,10 +259,36 @@ void MainWindow::refresh_startstop_button() {
         }
     }
     btn->setLock(lock);
+
+    if (trayConnectAction != nullptr) {
+        if (m_profileConnecting) {
+            trayConnectAction->setText(tr("Connecting"));
+        } else if (m_profileDisconnecting) {
+            trayConnectAction->setText(tr("Disconnecting"));
+        } else {
+            trayConnectAction->setText(running != nullptr ? tr("Disconnect") : tr("Connect"));
+        }
+        trayConnectAction->setEnabled(!m_profileConnecting && !m_profileDisconnecting &&
+                                      (running != nullptr || get_profile_to_start() >= 0));
+    }
+
+    // Here rather than in refresh_status(): the connecting/disconnecting flags only ever refresh this button.
+    auto iconStatus = Icon::TrayIconStatus::None;
+    if (m_profileConnecting || m_profileDisconnecting) iconStatus = Icon::TrayIconStatus::Connecting;
+    else if (mode == StartStopButton::Mode::Tun) iconStatus = Icon::TrayIconStatus::Vpn;
+    else if (mode == StartStopButton::Mode::SystemProxy) iconStatus = Icon::TrayIconStatus::SystemProxy;
+    else if (mode == StartStopButton::Mode::Core) iconStatus = Icon::TrayIconStatus::Running;
+    if (iconStatus != icon_status) {
+        QApplication::setWindowIcon(GetTaskbarIcon(iconStatus));
+        if (tray != nullptr) tray->setIcon(Icon::GetTrayIcon(iconStatus));
+        icon_status = iconStatus;
+    }
 }
 
 void MainWindow::update_traffic_graph(int proxyDl, int proxyUp, int directDl, int directUp)
 {
+    m_liveRates = LiveRates{.proxyUp = proxyUp, .proxyDown = proxyDl, .directUp = directUp, .directDown = directDl};
+    m_liveRatesAt.start();
     if (speedChartWidget) {
         QMap<SpeedWidget::GraphType, long> pointData;
         pointData[SpeedWidget::OUTBOUND_PROXY_UP] = proxyUp;
@@ -298,7 +311,7 @@ void MainWindow::refresh_proxy_list_column_size() {
         m_adjustingColumns = true;
         QScrollBar *vBar = ui->profilesTableView->verticalScrollBar();
         const bool vBarBlocked = vBar->blockSignals(true);
-        hHeader->blockSignals(true);
+        // Header signals stay live: QTableView repaints its cells from sectionResized.
         constexpr int columnCount = ProfilesTableModel::ColumnCount;
         if (!group->column_width.isEmpty() && group->column_width.size() != columnCount) {
             group->column_width.clear();
@@ -335,7 +348,6 @@ void MainWindow::refresh_proxy_list_column_size() {
             ui->profilesTableView->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         }
         hHeader->adjustPositions();
-        hHeader->blockSignals(false);
         vBar->blockSignals(vBarBlocked);
         m_adjustingColumns = false;
     });

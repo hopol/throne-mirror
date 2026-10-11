@@ -7,6 +7,10 @@ rm -rf $DEST
 mkdir -p $DEST
 
 [[ "$GOOS" =~ legacy$ ]] && IS_LEGACY=true && GOCMD="$PWD/golang.org/go/bin/go" && GOOS="${GOOS%legacy}" || { IS_LEGACY=false; GOCMD="go"; }
+# a go.mod newer than the patched toolchain must fail the build, not auto-fetch an unpatched official Go
+if $IS_LEGACY; then
+  export GOTOOLCHAIN=local
+fi
 
 if [[ "$GOOS" == "windows" || "$GOOS" == "linux" ]]; then
     FILE=$([[ "$GOOS" == "windows" ]] && echo "updater-windows-x${GOARCH: -2}.exe" || echo "updater-linux-$GOARCH")
