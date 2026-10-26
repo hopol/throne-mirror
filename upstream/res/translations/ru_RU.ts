@@ -2,6 +2,45 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ru_RU">
 <context>
+    <name>CommandPalette</name>
+    <message>
+        <source>Search Commands and Settings</source>
+        <translation>Поиск команд и настроек</translation>
+    </message>
+    <message>
+        <source>Search commands and settings</source>
+        <translation>Поиск команд и настроек</translation>
+    </message>
+    <message>
+        <source>↑↓ move · Enter run · Esc close · &gt; commands only · @ settings only</source>
+        <translation>↑↓ выбор · Enter выполнить · Esc закрыть · &gt; только команды · @ только настройки</translation>
+    </message>
+    <message>
+        <source>Commands</source>
+        <translation>Команды</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>Настройки</translation>
+    </message>
+    <message>
+        <source>Nothing found</source>
+        <translation>Ничего не найдено</translation>
+    </message>
+    <message>
+        <source> (on)</source>
+        <translation> (вкл.)</translation>
+    </message>
+    <message>
+        <source> (off)</source>
+        <translation> (выкл.)</translation>
+    </message>
+    <message>
+        <source>Settings in Advanced mode</source>
+        <translation>Настройки в расширенном режиме</translation>
+    </message>
+</context>
+<context>
     <name>ConnectionsFilterHeader</name>
     <message>
         <source>Disable Filter</source>
@@ -25,6 +64,10 @@
     <message>
         <source>System</source>
         <translation>Система</translation>
+    </message>
+    <message>
+        <source>Matched: %1 → %2</source>
+        <translation>Сработало: %1 → %2</translation>
     </message>
     <message>
         <source>Process: %1
@@ -168,6 +211,61 @@ Outbound: %4</translation>
     <message>
         <source>Recording… %1 left</source>
         <translation>Запись… Осталось %1</translation>
+    </message>
+</context>
+<context>
+    <name>DialogAbout</name>
+    <message>
+        <source>About Throne</source>
+        <translation>О Throne</translation>
+    </message>
+    <message>
+        <source>Version:</source>
+        <translation>Версия:</translation>
+    </message>
+    <message>
+        <source>Open-source and cross platform Desktop Proxy management utility developed as a successor to Nekoray.</source>
+        <translation>Кроссплатформенная утилита с открытым исходным кодом для управления прокси на компьютере, созданная как преемник Nekoray.</translation>
+    </message>
+    <message>
+        <source>Support Throne</source>
+        <translation>Поддержать Throne</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Неизвестно</translation>
+    </message>
+</context>
+<context>
+    <name>DialogUpdate</name>
+    <message>
+        <source>Update (Pre-release)</source>
+        <translation>Обновление (предварительная версия)</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <translation>Обновление</translation>
+    </message>
+    <message>
+        <source>Throne %1 is available, you are using %2.</source>
+        <translation>Доступна версия Throne %1, у вас установлена %2.</translation>
+    </message>
+    <message>
+        <source>Release notes are unavailable.</source>
+        <translation>Список изменений недоступен.</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <comment>button</comment>
+        <translation>Обновить</translation>
+    </message>
+    <message>
+        <source>Open in browser</source>
+        <translation>Открыть в браузере</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Закрыть</translation>
     </message>
 </context>
 <context>
@@ -1188,6 +1286,30 @@ Throne will restart to complete the restore.</source>
     <message>
         <source>The backup&apos;s database is damaged: %1</source>
         <translation>База данных резервной копии повреждена: %1</translation>
+    </message>
+    <message>
+        <source>Trust System Certificates in Xray</source>
+        <translation>Доверять системным сертификатам в Xray</translation>
+    </message>
+    <message>
+        <source>Xray verifies servers only against its built-in root certificates. Turn this on to also trust the certificates installed in the system, such as a company or self-signed root. A profile or Xray config that sets useSystemCA itself keeps its own value.</source>
+        <translation>Xray проверяет серверы только по встроенным корневым сертификатам. Включите, чтобы доверять и сертификатам, установленным в системе, например корпоративному или самоподписанному корневому. Профиль или конфигурация Xray, где useSystemCA задан явно, сохраняет своё значение.</translation>
+    </message>
+    <message>
+        <source>Interface</source>
+        <translation>Интерфейс</translation>
+    </message>
+    <message>
+        <source>Simple hides the advanced options. They keep their values and still apply.</source>
+        <translation>Простой режим скрывает дополнительные параметры. Их значения сохраняются и продолжают действовать.</translation>
+    </message>
+    <message>
+        <source>Simple</source>
+        <translation>Простой</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>Расширенный</translation>
     </message>
 </context>
 <context>
@@ -2492,6 +2614,158 @@ Throne will restart to complete the restore.</source>
         <source>The short ID has no effect without a Reality public key, so Reality stays off.</source>
         <translation>Short ID не действует без публичного ключа Reality, поэтому Reality остается выключенным.</translation>
     </message>
+    <message>
+        <source>Storage</source>
+        <translation>Хранилище</translation>
+    </message>
+    <message>
+        <source>Tuning</source>
+        <translation>Настройка</translation>
+    </message>
+    <message>
+        <source>Service</source>
+        <translation>Сервис</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>Папка</translation>
+    </message>
+    <message>
+        <source>Client ID</source>
+        <translation>Client ID</translation>
+    </message>
+    <message>
+        <source>Client Secret</source>
+        <translation>Client Secret</translation>
+    </message>
+    <message>
+        <source>Refresh Token</source>
+        <translation>Refresh Token</translation>
+    </message>
+    <message>
+        <source>Secrets</source>
+        <translation>Секреты</translation>
+    </message>
+    <message>
+        <source>Template</source>
+        <translation>Шаблон</translation>
+    </message>
+    <message>
+        <source>Front Address</source>
+        <translation>Адрес фронта</translation>
+    </message>
+    <message>
+        <source>Front Port</source>
+        <translation>Порт фронта</translation>
+    </message>
+    <message>
+        <source>Segment Bytes</source>
+        <translation>Байт в сегменте</translation>
+    </message>
+    <message>
+        <source>Flush Interval</source>
+        <translation>Интервал сброса</translation>
+    </message>
+    <message>
+        <source>Poll Interval</source>
+        <translation>Интервал опроса</translation>
+    </message>
+    <message>
+        <source>Max Poll Interval</source>
+        <translation>Макс. интервал опроса</translation>
+    </message>
+    <message>
+        <source>Eager Window</source>
+        <translation>Окно активного опроса</translation>
+    </message>
+    <message>
+        <source>Hole Timeout</source>
+        <translation>Тайм-аут пропуска</translation>
+    </message>
+    <message>
+        <source>Session TTL</source>
+        <translation>Время жизни сеанса</translation>
+    </message>
+    <message>
+        <source>Concurrency</source>
+        <translation>Параллельность</translation>
+    </message>
+    <message>
+        <source>Google Drive folder ID</source>
+        <translation>ID папки Google Drive</translation>
+    </message>
+    <message>
+        <source>A directory path</source>
+        <translation>Путь к каталогу</translation>
+    </message>
+    <message>
+        <source>Where both ends exchange the stream: google-drive uses a Google Drive folder, template any HTTP storage API described by Template, local a folder on this machine.</source>
+        <translation>Где обе стороны обмениваются потоком: google-drive использует папку Google Drive, template — любой HTTP API хранилища, описанный в шаблоне, local — папку на этом компьютере.</translation>
+    </message>
+    <message>
+        <source>google-drive: the folder ID. local: a directory path. template: read as {folder}.</source>
+        <translation>google-drive: ID папки. local: путь к каталогу. template: подставляется как {folder}.</translation>
+    </message>
+    <message>
+        <source>The Google Drive OAuth client ID.</source>
+        <translation>OAuth client ID для Google Drive.</translation>
+    </message>
+    <message>
+        <source>The Google Drive OAuth client secret.</source>
+        <translation>OAuth client secret для Google Drive.</translation>
+    </message>
+    <message>
+        <source>The OAuth refresh token for the Google account that owns the folder.</source>
+        <translation>OAuth refresh token аккаунта Google, которому принадлежит папка.</translation>
+    </message>
+    <message>
+        <source>Values the template reads as {secret0}, {secret1}, …, separated by commas.</source>
+        <translation>Значения, которые шаблон подставляет как {secret0}, {secret1}, …, через запятую.</translation>
+    </message>
+    <message>
+        <source>The storage API&apos;s auth, put, get, list and delete operations, as JSON.</source>
+        <translation>Операции auth, put, get, list и delete API хранилища в формате JSON.</translation>
+    </message>
+    <message>
+        <source>Optional domain front: the storage API is dialed at this address while TLS still names the API host.</source>
+        <translation>Необязательный домен-фронт: API хранилища вызывается по этому адресу, а TLS по-прежнему указывает хост API.</translation>
+    </message>
+    <message>
+        <source>Port of the front address. Default: 443.</source>
+        <translation>Порт адреса фронта. По умолчанию: 443.</translation>
+    </message>
+    <message>
+        <source>Largest upload per file, in bytes. Default: 524288; Xray caps it at 16 MiB.</source>
+        <translation>Наибольший объём загрузки на один файл, в байтах. По умолчанию: 524288; Xray ограничивает его 16 МиБ.</translation>
+    </message>
+    <message>
+        <source>How long writes are gathered before an upload, in milliseconds. Default: 20.</source>
+        <translation>Сколько записи накапливаются перед загрузкой, в миллисекундах. По умолчанию: 20.</translation>
+    </message>
+    <message>
+        <source>Shortest wait between checks for new files, in milliseconds. Default: 50.</source>
+        <translation>Наименьшая пауза между проверками новых файлов, в миллисекундах. По умолчанию: 50.</translation>
+    </message>
+    <message>
+        <source>Longest wait between checks while the stream is idle, in milliseconds. Default: 500.</source>
+        <translation>Наибольшая пауза между проверками, пока поток простаивает, в миллисекундах. По умолчанию: 500.</translation>
+    </message>
+    <message>
+        <source>How long after traffic polling stays at the shortest wait, in milliseconds. Default: 2000.</source>
+        <translation>Сколько после трафика опрос остаётся с наименьшей паузой, в миллисекундах. По умолчанию: 2000.</translation>
+    </message>
+    <message>
+        <source>How long a missing segment is waited for before the stream fails, in milliseconds. Default: 30000.</source>
+        <translation>Сколько ждать пропавший сегмент, прежде чем поток завершится ошибкой, в миллисекундах. По умолчанию: 30000.</translation>
+    </message>
+    <message>
+        <source>How long an idle session lives before its files are cleaned up, in seconds. Default: 300.</source>
+        <translation>Сколько живёт простаивающий сеанс, прежде чем его файлы будут удалены, в секундах. По умолчанию: 300.</translation>
+    </message>
+    <message>
+        <source>Parallel storage requests per stream. Default: 8; Xray caps it at 64.</source>
+        <translation>Параллельные запросы к хранилищу на один поток. По умолчанию: 8; Xray ограничивает их 64.</translation>
+    </message>
 </context>
 <context>
     <name>DialogEndpointDetails</name>
@@ -3530,6 +3804,10 @@ A domain listed with only one address family is answered NXDOMAIN for the other,
     <message>
         <source>Add these remote routing profiles?</source>
         <translation>Добавить эти удалённые профили маршрутизации?</translation>
+    </message>
+    <message>
+        <source>WARP has no config yet: click Generate Warp Config.</source>
+        <translation>У WARP ещё нет конфигурации: нажмите «Сгенерировать конфигурацию Warp».</translation>
     </message>
 </context>
 <context>
@@ -8891,6 +9169,22 @@ Error: %1</source>
         <translation>Отмена</translation>
     </message>
     <message>
+        <source>Leftover Tun adapter</source>
+        <translation>Оставшийся адаптер TUN</translation>
+    </message>
+    <message>
+        <source>Windows was still holding the Tun adapter from an earlier session that did not close cleanly. Starting the profile again usually works; if it keeps failing, restart Windows.
+
+Error: %1</source>
+        <translation>Windows всё ещё удерживала адаптер TUN от предыдущего сеанса, который не был корректно завершён. Обычно помогает повторный запуск профиля; если ошибка повторяется, перезагрузите Windows.
+
+Ошибка: %1</translation>
+    </message>
+    <message>
+        <source>Start Again</source>
+        <translation>Запустить снова</translation>
+    </message>
+    <message>
         <source>Add new Group</source>
         <translation>Добавить новую группу</translation>
     </message>
@@ -9397,12 +9691,40 @@ Name: %1</source>
         <translation>Изменить правила</translation>
     </message>
     <message>
+        <source>Specific server</source>
+        <translation>Другой сервер</translation>
+    </message>
+    <message>
+        <source>Route through another server</source>
+        <translation>Направить через другой сервер</translation>
+    </message>
+    <message>
+        <source>There are no servers to route to.</source>
+        <translation>Нет серверов для маршрутизации.</translation>
+    </message>
+    <message>
         <source>%1 rules</source>
         <translation>Правила «%1»</translation>
     </message>
     <message>
+        <source>Specific server rules</source>
+        <translation>Правила сервера</translation>
+    </message>
+    <message>
         <source>Routing profile &quot;%1&quot;. Checked targets go %2; unchecking one removes its rule.</source>
         <translation>Профиль маршрутизации &quot;%1&quot;. Отмеченные цели попадают в правила «%2»; снятие флажка удаляет правило.</translation>
+    </message>
+    <message>
+        <source>Routing profile &quot;%1&quot;. Checked targets go through the chosen server; unchecking one removes its rule.</source>
+        <translation>Профиль маршрутизации &quot;%1&quot;. Отмеченные цели идут через выбранный сервер; снятие флажка удаляет правило.</translation>
+    </message>
+    <message>
+        <source>Server (type part of its name to search):</source>
+        <translation>Сервер (введите часть имени для поиска):</translation>
+    </message>
+    <message>
+        <source>Search servers</source>
+        <translation>Поиск серверов</translation>
     </message>
     <message>
         <source>in %1</source>
@@ -9565,6 +9887,30 @@ Name: %1</source>
     <message>
         <source>Kill switch is blocking traffic</source>
         <translation>Kill switch блокирует трафик</translation>
+    </message>
+    <message>
+        <source>Search Commands and Settings</source>
+        <translation>Поиск команд и настроек</translation>
+    </message>
+    <message>
+        <source>close the open settings window first</source>
+        <translation>сначала закройте открытое окно настроек</translation>
+    </message>
+    <message>
+        <source>close &quot;%1&quot; first</source>
+        <translation>сначала закройте «%1»</translation>
+    </message>
+    <message>
+        <source>About</source>
+        <translation>О программе</translation>
+    </message>
+    <message>
+        <source>Advanced Mode</source>
+        <translation>Расширенный режим</translation>
+    </message>
+    <message>
+        <source>Show every option. Simple mode hides the advanced ones; they keep their values and still apply.</source>
+        <translation>Показывать все параметры. Простой режим скрывает дополнительные, но их значения сохраняются и продолжают действовать.</translation>
     </message>
 </context>
 <context>
@@ -9896,22 +10242,6 @@ To fix this, share the hotspot from the throne-tun adapter instead of &quot;%1&q
     <message>
         <source>No update</source>
         <translation>Обновлений нет</translation>
-    </message>
-    <message>
-        <source>Update found: %1
-Release note:
-%2</source>
-        <translation>Найдено обновление: %1
-Список изменений:
-%2</translation>
-    </message>
-    <message>
-        <source>Open in browser</source>
-        <translation>Открыть в браузере</translation>
-    </message>
-    <message>
-        <source>Close</source>
-        <translation>Закрыть</translation>
     </message>
     <message>
         <source>Update is ready, restart to install?</source>
@@ -12620,8 +12950,8 @@ Remove that endpoint from this routing profile as well?</source>
         <translation>Значение finalmask проигнорировано: оно должно быть объектом JSON.</translation>
     </message>
     <message>
-        <source>Throne does not support the Xray transport &quot;%1&quot;. Use raw, xhttp, ws, httpupgrade or grpc.</source>
-        <translation>Throne не поддерживает транспорт Xray &quot;%1&quot;. Используйте raw, xhttp, ws, httpupgrade или grpc.</translation>
+        <source>Throne does not support the Xray transport &quot;%1&quot;. Use raw, xhttp, ws, httpupgrade, grpc or xdrive.</source>
+        <translation>Throne не поддерживает транспорт Xray &quot;%1&quot;. Используйте raw, xhttp, ws, httpupgrade, grpc или xdrive.</translation>
     </message>
     <message>
         <source>Xray does not support the security &quot;%1&quot;. Use none, tls or reality.</source>
@@ -14290,6 +14620,46 @@ Remove that endpoint from this routing profile as well?</source>
     <message>
         <source>Warnings:</source>
         <translation>Предупреждения:</translation>
+    </message>
+    <message>
+        <source>XDRIVE has no share-link format. Import the server&apos;s JSON configuration instead.</source>
+        <translation>У XDRIVE нет формата ссылки. Импортируйте JSON-конфигурацию сервера.</translation>
+    </message>
+    <message>
+        <source>Must be google-drive, template or local.</source>
+        <translation>Должно быть google-drive, template или local.</translation>
+    </message>
+    <message>
+        <source>Enter the directory both ends share.</source>
+        <translation>Укажите каталог, общий для обеих сторон.</translation>
+    </message>
+    <message>
+        <source>Enter the ID of the Google Drive folder both ends share.</source>
+        <translation>Укажите ID папки Google Drive, общей для обеих сторон.</translation>
+    </message>
+    <message>
+        <source>Google Drive needs the client ID, client secret and refresh token.</source>
+        <translation>Для Google Drive нужны client ID, client secret и refresh token.</translation>
+    </message>
+    <message>
+        <source>The template service needs a template describing the storage API.</source>
+        <translation>Сервису template нужен шаблон, описывающий API хранилища.</translation>
+    </message>
+    <message>
+        <source>The front port is used only together with a front address.</source>
+        <translation>Порт фронта используется только вместе с адресом фронта.</translation>
+    </message>
+    <message>
+        <source>XDRIVE needs VLESS encryption: enter the mlkem768x25519plus string the server gives.</source>
+        <translation>Для XDRIVE нужно шифрование VLESS: введите строку mlkem768x25519plus, которую выдаёт сервер.</translation>
+    </message>
+    <message>
+        <source>XDRIVE does not support a flow; clear it.</source>
+        <translation>XDRIVE не поддерживает flow; очистите его.</translation>
+    </message>
+    <message>
+        <source>XDRIVE needs Mux: set it to On or Keep Default.</source>
+        <translation>Для XDRIVE нужен Mux: выберите «Вкл.» или «По умолчанию».</translation>
     </message>
 </context>
 </TS>

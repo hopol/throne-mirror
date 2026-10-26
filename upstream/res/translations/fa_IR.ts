@@ -2,6 +2,13 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="fa_IR" sourcelanguage="en">
 <context>
+    <name>CommandPalette</name>
+    <message>
+        <source>Settings in Advanced mode</source>
+        <translation>تنظیمات حالت پیشرفته</translation>
+    </message>
+</context>
+<context>
     <name>ConnectionsTreeModel</name>
     <message>
         <source>Close this connection</source>
@@ -175,22 +182,6 @@ Deleted %3 Profiles:
         <translation type="unfinished">بدون بروزرسانی جدید</translation>
     </message>
     <message>
-        <source>Update found: %1
-Release note:
-%2</source>
-        <translation type="unfinished">به‌روزرسانی یافت شد: %1
-یادداشت انتشار:
-%2</translation>
-    </message>
-    <message>
-        <source>Open in browser</source>
-        <translation type="unfinished">در مرور گر باز شود</translation>
-    </message>
-    <message>
-        <source>Close</source>
-        <translation type="unfinished">بستن</translation>
-    </message>
-    <message>
         <source>Update is ready, restart to install?</source>
         <translation type="unfinished">به روز رسانی آماده است، برای نصب مجدد راه اندازی شود؟</translation>
     </message>
@@ -229,6 +220,61 @@ Release note:
     <message>
         <source>This group no longer exists.</source>
         <translation>این گروه دیگر وجود ندارد.</translation>
+    </message>
+</context>
+<context>
+    <name>DialogAbout</name>
+    <message>
+        <source>About Throne</source>
+        <translation>درباره Throne</translation>
+    </message>
+    <message>
+        <source>Version:</source>
+        <translation>نسخه:</translation>
+    </message>
+    <message>
+        <source>Open-source and cross platform Desktop Proxy management utility developed as a successor to Nekoray.</source>
+        <translation>ابزار متن‌باز و چندسکویی مدیریت پروکسی برای دسکتاپ که به‌عنوان جانشین Nekoray توسعه یافته است.</translation>
+    </message>
+    <message>
+        <source>Support Throne</source>
+        <translation>حمایت از Throne</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>نامشخص</translation>
+    </message>
+</context>
+<context>
+    <name>DialogUpdate</name>
+    <message>
+        <source>Update (Pre-release)</source>
+        <translation>به‌روزرسانی (پیش‌انتشار)</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <translation>به‌روزرسانی</translation>
+    </message>
+    <message>
+        <source>Throne %1 is available, you are using %2.</source>
+        <translation>نسخه %1 از Throne در دسترس است، نسخه فعلی شما %2 است.</translation>
+    </message>
+    <message>
+        <source>Release notes are unavailable.</source>
+        <translation>یادداشت‌های انتشار در دسترس نیست.</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <comment>button</comment>
+        <translation>به‌روزرسانی</translation>
+    </message>
+    <message>
+        <source>Open in browser</source>
+        <translation>باز کردن در مرورگر</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>بستن</translation>
     </message>
 </context>
 <context>
@@ -606,6 +652,30 @@ Release note:
         <source>The backup&apos;s database is damaged: %1</source>
         <translation>پایگاه دادهٔ پشتیبان آسیب دیده است: %1</translation>
     </message>
+    <message>
+        <source>Trust System Certificates in Xray</source>
+        <translation>اعتماد Xray به گواهی‌های سیستم</translation>
+    </message>
+    <message>
+        <source>Xray verifies servers only against its built-in root certificates. Turn this on to also trust the certificates installed in the system, such as a company or self-signed root. A profile or Xray config that sets useSystemCA itself keeps its own value.</source>
+        <translation>Xray سرورها را فقط با گواهی‌های ریشهٔ داخلی خودش بررسی می‌کند. با روشن کردن این گزینه، گواهی‌های نصب‌شده در سیستم، مانند گواهی ریشهٔ سازمانی یا خودامضا، نیز معتبر شمرده می‌شوند. پروفایل یا پیکربندی Xray که خودش useSystemCA را تعیین کرده باشد، مقدار خودش را نگه می‌دارد.</translation>
+    </message>
+    <message>
+        <source>Interface</source>
+        <translation>رابط کاربری</translation>
+    </message>
+    <message>
+        <source>Simple hides the advanced options. They keep their values and still apply.</source>
+        <translation>حالت ساده گزینه‌های پیشرفته را پنهان می‌کند. مقدارشان حفظ می‌شود و همچنان اعمال می‌شوند.</translation>
+    </message>
+    <message>
+        <source>Simple</source>
+        <translation>ساده</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>پیشرفته</translation>
+    </message>
 </context>
 <context>
     <name>DialogEditGroup</name>
@@ -972,6 +1042,158 @@ Release note:
         <source>This profile was deleted while you were editing it.</source>
         <translation>این پروفایل در حین ویرایش شما حذف شد.</translation>
     </message>
+    <message>
+        <source>Storage</source>
+        <translation>فضای ذخیره‌سازی</translation>
+    </message>
+    <message>
+        <source>Tuning</source>
+        <translation>تنظیم دقیق</translation>
+    </message>
+    <message>
+        <source>Service</source>
+        <translation>سرویس</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>پوشه</translation>
+    </message>
+    <message>
+        <source>Client ID</source>
+        <translation>شناسهٔ کلاینت</translation>
+    </message>
+    <message>
+        <source>Client Secret</source>
+        <translation>رمز کلاینت</translation>
+    </message>
+    <message>
+        <source>Refresh Token</source>
+        <translation>توکن تازه‌سازی</translation>
+    </message>
+    <message>
+        <source>Secrets</source>
+        <translation>رمزها</translation>
+    </message>
+    <message>
+        <source>Template</source>
+        <translation>قالب</translation>
+    </message>
+    <message>
+        <source>Front Address</source>
+        <translation>نشانی جلویی</translation>
+    </message>
+    <message>
+        <source>Front Port</source>
+        <translation>درگاه جلویی</translation>
+    </message>
+    <message>
+        <source>Segment Bytes</source>
+        <translation>بایت هر بخش</translation>
+    </message>
+    <message>
+        <source>Flush Interval</source>
+        <translation>فاصلهٔ ارسال</translation>
+    </message>
+    <message>
+        <source>Poll Interval</source>
+        <translation>فاصلهٔ بررسی</translation>
+    </message>
+    <message>
+        <source>Max Poll Interval</source>
+        <translation>بیشینهٔ فاصلهٔ بررسی</translation>
+    </message>
+    <message>
+        <source>Eager Window</source>
+        <translation>پنجرهٔ بررسی فعال</translation>
+    </message>
+    <message>
+        <source>Hole Timeout</source>
+        <translation>مهلت بخش گم‌شده</translation>
+    </message>
+    <message>
+        <source>Session TTL</source>
+        <translation>عمر نشست</translation>
+    </message>
+    <message>
+        <source>Concurrency</source>
+        <translation>هم‌زمانی</translation>
+    </message>
+    <message>
+        <source>Google Drive folder ID</source>
+        <translation>شناسهٔ پوشهٔ Google Drive</translation>
+    </message>
+    <message>
+        <source>A directory path</source>
+        <translation>مسیر یک پوشه</translation>
+    </message>
+    <message>
+        <source>Where both ends exchange the stream: google-drive uses a Google Drive folder, template any HTTP storage API described by Template, local a folder on this machine.</source>
+        <translation>جایی که دو طرف جریان را مبادله می‌کنند: google-drive از یک پوشهٔ Google Drive استفاده می‌کند، template از هر API ذخیره‌سازی HTTP که در قالب توصیف شده باشد، و local از پوشه‌ای روی همین دستگاه.</translation>
+    </message>
+    <message>
+        <source>google-drive: the folder ID. local: a directory path. template: read as {folder}.</source>
+        <translation>google-drive: شناسهٔ پوشه. local: مسیر یک پوشه. template: به‌صورت {folder} خوانده می‌شود.</translation>
+    </message>
+    <message>
+        <source>The Google Drive OAuth client ID.</source>
+        <translation>شناسهٔ کلاینت OAuth برای Google Drive.</translation>
+    </message>
+    <message>
+        <source>The Google Drive OAuth client secret.</source>
+        <translation>رمز کلاینت OAuth برای Google Drive.</translation>
+    </message>
+    <message>
+        <source>The OAuth refresh token for the Google account that owns the folder.</source>
+        <translation>توکن تازه‌سازی OAuth برای حساب Google که مالک پوشه است.</translation>
+    </message>
+    <message>
+        <source>Values the template reads as {secret0}, {secret1}, …, separated by commas.</source>
+        <translation>مقدارهایی که قالب به‌صورت {secret0}، {secret1}، … می‌خواند، جداشده با ویرگول.</translation>
+    </message>
+    <message>
+        <source>The storage API&apos;s auth, put, get, list and delete operations, as JSON.</source>
+        <translation>عملیات auth، put، get، list و delete در API ذخیره‌سازی، به‌صورت JSON.</translation>
+    </message>
+    <message>
+        <source>Optional domain front: the storage API is dialed at this address while TLS still names the API host.</source>
+        <translation>دامنهٔ جلویی اختیاری: اتصال به API ذخیره‌سازی از طریق این نشانی برقرار می‌شود، در حالی که TLS همچنان نام میزبان API را می‌برد.</translation>
+    </message>
+    <message>
+        <source>Port of the front address. Default: 443.</source>
+        <translation>درگاه نشانی جلویی. پیش‌فرض: 443.</translation>
+    </message>
+    <message>
+        <source>Largest upload per file, in bytes. Default: 524288; Xray caps it at 16 MiB.</source>
+        <translation>بیشترین حجم بارگذاری در هر فایل، بر حسب بایت. پیش‌فرض: 524288؛ Xray آن را حداکثر ۱۶ مبی‌بایت می‌کند.</translation>
+    </message>
+    <message>
+        <source>How long writes are gathered before an upload, in milliseconds. Default: 20.</source>
+        <translation>مدت جمع‌آوری نوشته‌ها پیش از بارگذاری، بر حسب میلی‌ثانیه. پیش‌فرض: 20.</translation>
+    </message>
+    <message>
+        <source>Shortest wait between checks for new files, in milliseconds. Default: 50.</source>
+        <translation>کوتاه‌ترین فاصله میان بررسی فایل‌های تازه، بر حسب میلی‌ثانیه. پیش‌فرض: 50.</translation>
+    </message>
+    <message>
+        <source>Longest wait between checks while the stream is idle, in milliseconds. Default: 500.</source>
+        <translation>بلندترین فاصله میان بررسی‌ها هنگامی که جریان بیکار است، بر حسب میلی‌ثانیه. پیش‌فرض: 500.</translation>
+    </message>
+    <message>
+        <source>How long after traffic polling stays at the shortest wait, in milliseconds. Default: 2000.</source>
+        <translation>مدتی که پس از ترافیک، بررسی با کوتاه‌ترین فاصله ادامه می‌یابد، بر حسب میلی‌ثانیه. پیش‌فرض: 2000.</translation>
+    </message>
+    <message>
+        <source>How long a missing segment is waited for before the stream fails, in milliseconds. Default: 30000.</source>
+        <translation>مدت انتظار برای یک بخش گم‌شده پیش از شکست جریان، بر حسب میلی‌ثانیه. پیش‌فرض: 30000.</translation>
+    </message>
+    <message>
+        <source>How long an idle session lives before its files are cleaned up, in seconds. Default: 300.</source>
+        <translation>مدت زنده ماندن یک نشست بیکار پیش از پاک شدن فایل‌هایش، بر حسب ثانیه. پیش‌فرض: 300.</translation>
+    </message>
+    <message>
+        <source>Parallel storage requests per stream. Default: 8; Xray caps it at 64.</source>
+        <translation>درخواست‌های هم‌زمان به فضای ذخیره‌سازی در هر جریان. پیش‌فرض: 8؛ Xray آن را حداکثر 64 می‌کند.</translation>
+    </message>
 </context>
 <context>
     <name>DialogIntegration</name>
@@ -1281,6 +1503,10 @@ For more information, see the document &quot;Configuration/DNS&quot;.</source>
     <message>
         <source>Local Override</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>WARP has no config yet: click Generate Warp Config.</source>
+        <translation>WARP هنوز پیکربندی ندارد: روی «Generate Warp Config» کلیک کنید.</translation>
     </message>
 </context>
 <context>
@@ -2416,6 +2642,22 @@ https://matsuridayo.github.io/n-configuration/#vpn-tun</translation>
         <translation>لغو کردن</translation>
     </message>
     <message>
+        <source>Leftover Tun adapter</source>
+        <translation>آداپتور Tun باقی‌مانده</translation>
+    </message>
+    <message>
+        <source>Windows was still holding the Tun adapter from an earlier session that did not close cleanly. Starting the profile again usually works; if it keeps failing, restart Windows.
+
+Error: %1</source>
+        <translation>ویندوز هنوز آداپتور Tun یک نشست قبلی را که به‌درستی بسته نشده بود نگه داشته بود. معمولاً آغاز دوبارهٔ نمایه کار می‌کند؛ اگر باز هم ناموفق بود، ویندوز را دوباره راه‌اندازی کنید.
+
+خطا: %1</translation>
+    </message>
+    <message>
+        <source>Start Again</source>
+        <translation>آغاز دوباره</translation>
+    </message>
+    <message>
         <source>Add new Group</source>
         <translation>افزودن گروه جدید</translation>
     </message>
@@ -2776,6 +3018,22 @@ https://matsuridayo.github.io/n-configuration/#vpn-tun</translation>
     <message>
         <source>Kill switch is blocking traffic</source>
         <translation>Kill switch در حال مسدود کردن ترافیک است</translation>
+    </message>
+    <message>
+        <source>Check For Update</source>
+        <translation>بررسی به‌روزرسانی</translation>
+    </message>
+    <message>
+        <source>About</source>
+        <translation>درباره</translation>
+    </message>
+    <message>
+        <source>Advanced Mode</source>
+        <translation>حالت پیشرفته</translation>
+    </message>
+    <message>
+        <source>Show every option. Simple mode hides the advanced ones; they keep their values and still apply.</source>
+        <translation>همه گزینه‌ها را نشان می‌دهد. حالت ساده گزینه‌های پیشرفته را پنهان می‌کند؛ مقدارشان حفظ می‌شود و همچنان اعمال می‌شوند.</translation>
     </message>
 </context>
 <context>
