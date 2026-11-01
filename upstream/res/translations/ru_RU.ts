@@ -1311,6 +1311,14 @@ Throne will restart to complete the restore.</source>
         <source>Advanced</source>
         <translation>Расширенный</translation>
     </message>
+    <message>
+        <source>Allow other devices to connect</source>
+        <translation>Разрешить подключаться другим устройствам</translation>
+    </message>
+    <message>
+        <source>Lets other devices on your network use this DNS server, for example a router that sends its DNS through this computer. Anyone who can reach this port can then resolve names through your DNS settings.</source>
+        <translation>Позволяет другим устройствам в сети использовать этот DNS-сервер, например роутеру, который направляет DNS через этот компьютер. Любой, кто может достучаться до этого порта, сможет разрешать имена через ваши настройки DNS.</translation>
+    </message>
 </context>
 <context>
     <name>DialogEditGroup</name>
@@ -1381,6 +1389,34 @@ Throne will restart to complete the restore.</source>
     <message>
         <source>Copy profile share links (Deep Links)</source>
         <translation>Копировать ссылки профилей (deep links)</translation>
+    </message>
+    <message>
+        <source>Default (%1)</source>
+        <translation>По умолчанию (%1)</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>По умолчанию</translation>
+    </message>
+    <message>
+        <source>%1 (from this subscription)</source>
+        <translation>%1 (из этой подписки)</translation>
+    </message>
+    <message>
+        <source>Routing Profile</source>
+        <translation>Профиль маршрутизации</translation>
+    </message>
+    <message>
+        <source>Use the subscription&apos;s routing profile</source>
+        <translation>Использовать профиль маршрутизации из подписки</translation>
+    </message>
+    <message>
+        <source>The routing profile this group&apos;s profiles connect with. Default follows the routing profile chosen in the Routing menu.</source>
+        <translation>Профиль маршрутизации, с которым подключаются профили этой группы. «По умолчанию» — профиль, выбранный в меню «Маршрутизация».</translation>
+    </message>
+    <message>
+        <source>Each update saves the routing profile the subscription provides (Happ format) as this group&apos;s own routing profile. DNS settings from the subscription are never used.</source>
+        <translation>При каждом обновлении профиль маршрутизации из подписки (формат Happ) сохраняется как собственный профиль этой группы. Настройки DNS из подписки никогда не используются.</translation>
     </message>
 </context>
 <context>
@@ -3362,8 +3398,8 @@ For more information, see the document &quot;Configuration/DNS&quot;.</source>
         <translation>Включить FakeIP</translation>
     </message>
     <message>
-        <source>WireGuard runs over UDP. MASQUE tunnels over HTTP/3 or HTTP/2 and passes networks that block WireGuard.</source>
-        <translation>WireGuard работает поверх UDP. MASQUE туннелирует трафик через HTTP/3 или HTTP/2 и проходит через сети, блокирующие WireGuard.</translation>
+        <source>WireGuard runs over UDP. AmneziaWG adds WARP-compatible junk and camouflage packets. MASQUE tunnels over HTTP/3 or HTTP/2.</source>
+        <translation>WireGuard работает по UDP. AmneziaWG добавляет совместимые с WARP мусорные и маскирующие пакеты. MASQUE работает через HTTP/3 или HTTP/2.</translation>
     </message>
     <message>
         <source>Mode</source>
@@ -3808,6 +3844,22 @@ A domain listed with only one address family is answered NXDOMAIN for the other,
     <message>
         <source>WARP has no config yet: click Generate Warp Config.</source>
         <translation>У WARP ещё нет конфигурации: нажмите «Сгенерировать конфигурацию Warp».</translation>
+    </message>
+    <message>
+        <source>Generating the AmneziaWG QUIC signature...</source>
+        <translation>Генерация QUIC-сигнатуры AmneziaWG...</translation>
+    </message>
+    <message>
+        <source>AmneziaWG has no QUIC signature yet: click Generate Warp Config.</source>
+        <translation>У AmneziaWG ещё нет QUIC-сигнатуры: нажмите «Сгенерировать конфигурацию Warp».</translation>
+    </message>
+    <message>
+        <source>%1 (updated by subscription &quot;%2&quot;)</source>
+        <translation>%1 (обновляется подпиской «%2»)</translation>
+    </message>
+    <message>
+        <source>Every update of the subscription &quot;%1&quot; overwrites its rules. Deleting it stops the import.</source>
+        <translation>Каждое обновление подписки «%1» перезаписывает его правила. Удаление прекращает импорт.</translation>
     </message>
 </context>
 <context>
@@ -4919,30 +4971,12 @@ Close without saving?</source>
         <translation>Восстановить диапазоны по умолчанию</translation>
     </message>
     <message>
-        <source>Troubleshooting</source>
-        <translation>Устранение неполадок</translation>
-    </message>
-    <message>
         <source>IPv6 needs an MTU of at least %1; below that the system may drop IPv6 from the Tun.</source>
         <translation>Для IPv6 нужен MTU не меньше %1; при меньшем значении система может отключить IPv6 на интерфейсе TUN.</translation>
     </message>
     <message>
         <source>This covers every address, which would stop Tun from routing anything.</source>
         <translation>Это охватывает все адреса — в этом случае TUN вообще перестанет маршрутизировать трафик.</translation>
-    </message>
-    <message>
-        <source>If you have trouble starting VPN, you can force reset Core process here.
-
-If still not working, see documentation for more information.
-https://matsuridayo.github.io/n-configuration/#vpn-tun</source>
-        <translation>Если возникают проблемы с запуском режима TUN, здесь можно принудительно сбросить процесс ядра.
-
-Если это не помогло, подробности см. в документации:
-https://matsuridayo.github.io/n-configuration/#vpn-tun</translation>
-    </message>
-    <message>
-        <source>Reset</source>
-        <translation>Сбросить</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -4987,6 +5021,14 @@ https://matsuridayo.github.io/n-configuration/#vpn-tun</translation>
     <message>
         <source>IPv6 CIDR</source>
         <translation>IPv6 CIDR</translation>
+    </message>
+    <message>
+        <source>Restart Core</source>
+        <translation>Перезапустить ядро</translation>
+    </message>
+    <message>
+        <source>Stops the running profile and restarts the core. Try this when Tun fails to start, then start the profile again.</source>
+        <translation>Останавливает запущенный профиль и перезапускает ядро. Попробуйте, если Tun не запускается, затем снова запустите профиль.</translation>
     </message>
 </context>
 <context>
@@ -5369,10 +5411,6 @@ https://matsuridayo.github.io/n-configuration/#vpn-tun</translation>
         <translation>оставьте поле пустым, чтобы использовать все профили в отмеченных группах</translation>
     </message>
     <message>
-        <source>Optional regular expression. Only profiles whose name matches are considered — useful to pick out one country or provider.</source>
-        <translation>Необязательное регулярное выражение. Учитываются только профили с подходящим названием — удобно, чтобы выбрать одну страну или провайдера.</translation>
-    </message>
-    <message>
         <source>Share traffic between the best profiles</source>
         <translation>Распределить трафик между лучшими профилями</translation>
     </message>
@@ -5407,14 +5445,6 @@ https://matsuridayo.github.io/n-configuration/#vpn-tun</translation>
     <message>
         <source>Only countries</source>
         <translation>Только страны</translation>
-    </message>
-    <message>
-        <source>e.g. DE,NL,FR</source>
-        <translation>например, DE,NL,FR</translation>
-    </message>
-    <message>
-        <source>Comma-separated country codes, empty means any. Uses the country found by the IP test, so profiles that were never IP-tested are skipped while this is set.</source>
-        <translation>Коды стран через запятую; пустое поле — любая страна. Используется страна, определённая IP-тестом, поэтому, пока фильтр задан, профили без IP-теста пропускаются.</translation>
     </message>
     <message>
         <source>Run the best</source>
@@ -5681,8 +5711,24 @@ https://matsuridayo.github.io/n-configuration/#vpn-tun</translation>
         <translation>Профилей с недавним результатом теста (он будет использован повторно): %1.</translation>
     </message>
     <message>
-        <source>The rest will be measured before the selector starts.</source>
-        <translation>Остальные профили будут измерены до запуска автовыбора.</translation>
+        <source>Optional regular expression, matched anywhere in the profile name and ignoring case. Only profiles whose name matches are used.
+Pick several: germany|nl
+Leave some out: ^(?!.*(germany|🇩🇪)).*$ uses every name that contains neither.</source>
+        <translation>Необязательное регулярное выражение; ищется в любом месте названия профиля без учёта регистра. Используются только профили с подходящим названием.
+Выбрать несколько: germany|nl
+Исключить некоторые: ^(?!.*(germany|🇩🇪)).*$ берёт все названия, где нет ни того, ни другого.</translation>
+    </message>
+    <message>
+        <source>e.g. DE,NL,FR or !RU</source>
+        <translation>например, DE,NL,FR или !RU</translation>
+    </message>
+    <message>
+        <source>Comma-separated country codes, empty means any. Put ! before a code to exclude that country instead, e.g. !RU uses every country but Russia. Uses the country found by the IP test, so profiles that were never IP-tested are skipped while this is set.</source>
+        <translation>Коды стран через запятую; пустое поле — любая страна. Поставьте ! перед кодом, чтобы исключить страну, например !RU — все страны, кроме России. Используется страна, определённая IP-тестом, поэтому, пока фильтр задан, профили без IP-теста пропускаются.</translation>
+    </message>
+    <message>
+        <source>The rest will be measured as the selector starts: it runs as soon as enough profiles work, and switches to the full ranking once all are measured.</source>
+        <translation>Остальные профили будут измерены при запуске: автовыбор заработает, как только наберётся достаточно рабочих профилей, и перейдёт на полный рейтинг, когда измерены все.</translation>
     </message>
 </context>
 <context>
@@ -9912,6 +9958,22 @@ Name: %1</source>
         <source>Show every option. Simple mode hides the advanced ones; they keep their values and still apply.</source>
         <translation>Показывать все параметры. Простой режим скрывает дополнительные, но их значения сохраняются и продолжают действовать.</translation>
     </message>
+    <message>
+        <source>[Auto selector] %1 working profiles found; starting now while the remaining %2 are still being measured.</source>
+        <translation>[Автовыбор] Найдено рабочих профилей: %1; запуск сейчас, остальные (%2) ещё измеряются.</translation>
+    </message>
+    <message>
+        <source>[Auto selector] Every profile is measured and the best ones changed — rebuilding with the full ranking.</source>
+        <translation>[Автовыбор] Все профили измерены, и лучшие изменились — пересборка по полному рейтингу.</translation>
+    </message>
+    <message>
+        <source>The current routing profile is updated by the subscription &quot;%1&quot;.</source>
+        <translation>Текущий профиль маршрутизации обновляется подпиской «%1».</translation>
+    </message>
+    <message>
+        <source>The group &quot;%1&quot; uses its own routing profile, so the running profile keeps it.</source>
+        <translation>Группа «%1» использует собственный профиль маршрутизации, поэтому запущенный профиль сохраняет его.</translation>
+    </message>
 </context>
 <context>
     <name>OtpItem</name>
@@ -11335,6 +11397,66 @@ To fix this, share the hotspot from the throne-tun adapter instead of &quot;%1&q
         <source>This group no longer exists.</source>
         <translation>Этой группы больше не существует.</translation>
     </message>
+    <message>
+        <source>Changed: %1</source>
+        <translation>Изменено: %1</translation>
+    </message>
+    <message>
+        <source>%1 was removed by the update and stays stopped: no single profile with the same name replaces it.</source>
+        <translation>%1 удалён при обновлении и остаётся остановленным: нет единственного профиля с тем же названием, который бы его заменил.</translation>
+    </message>
+    <message>
+        <source>%1 was replaced by the update; connecting to the profile with the same name.</source>
+        <translation>%1 заменён при обновлении; подключение к профилю с тем же названием.</translation>
+    </message>
+    <message>
+        <source>the routing profile is not in the Happ format</source>
+        <translation>профиль маршрутизации не в формате Happ</translation>
+    </message>
+    <message>
+        <source>a raw routing profile is not accepted from a subscription</source>
+        <translation>необработанный (raw) профиль маршрутизации из подписки не принимается</translation>
+    </message>
+    <message>
+        <source>unknown routing link action &quot;%1&quot;</source>
+        <translation>неизвестное действие ссылки маршрутизации «%1»</translation>
+    </message>
+    <message>
+        <source>the routing profile is not valid base64</source>
+        <translation>профиль маршрутизации не является корректным base64</translation>
+    </message>
+    <message>
+        <source>the routing profile is not a JSON object</source>
+        <translation>профиль маршрутизации не является JSON-объектом</translation>
+    </message>
+    <message>
+        <source>[Routing] %1: the routing profile the subscription provides was ignored: %2</source>
+        <translation>[Маршрутизация] %1: профиль маршрутизации из подписки пропущен: %2</translation>
+    </message>
+    <message>
+        <source>[Routing] %1: the routing profile the subscription provides was not applied, the routing profiles are open for editing.</source>
+        <translation>[Маршрутизация] %1: профиль маршрутизации из подписки не применён — профили маршрутизации открыты для редактирования.</translation>
+    </message>
+    <message>
+        <source>%1 entries, %2 skipped</source>
+        <translation>записей: %1, пропущено: %2</translation>
+    </message>
+    <message>
+        <source>%1 entries</source>
+        <translation>записей: %1</translation>
+    </message>
+    <message>
+        <source>%1 routing</source>
+        <translation>%1 — маршрутизация</translation>
+    </message>
+    <message>
+        <source>[Routing] %1: created the routing profile &quot;%2&quot; from the subscription (%3)</source>
+        <translation>[Маршрутизация] %1: из подписки создан профиль маршрутизации «%2» (%3)</translation>
+    </message>
+    <message>
+        <source>[Routing] %1: updated the routing profile &quot;%2&quot; from the subscription (%3)</source>
+        <translation>[Маршрутизация] %1: профиль маршрутизации «%2» обновлён из подписки (%3)</translation>
+    </message>
 </context>
 <context>
     <name>QPlatformTheme</name>
@@ -12429,12 +12551,12 @@ Remove that endpoint from this routing profile as well?</source>
         <translation>Осталось %1 мин.</translation>
     </message>
     <message>
-        <source>%1h left</source>
-        <translation>Осталось %1 ч.</translation>
+        <source>%1h %2m left</source>
+        <translation>Осталось %1 ч. %2 мин.</translation>
     </message>
     <message>
-        <source>%1d left</source>
-        <translation>Осталось %1 д.</translation>
+        <source>%1d %2h left</source>
+        <translation>Осталось %1 д. %2 ч.</translation>
     </message>
     <message>
         <source>Announcement - %1</source>
@@ -13086,10 +13208,6 @@ Remove that endpoint from this routing profile as well?</source>
         <translation>AnyTLS не поддерживает TCP Fast Open, поэтому он был отключен.</translation>
     </message>
     <message>
-        <source>Use two-letter country codes separated by commas, for example DE,NL,FR.</source>
-        <translation>Используйте двухбуквенные коды стран через запятую, например DE,NL,FR.</translation>
-    </message>
-    <message>
         <source>Cannot run more profiles than are ranked (%1).</source>
         <translation>Нельзя запускать больше профилей, чем ранжируется (%1).</translation>
     </message>
@@ -13224,10 +13342,6 @@ Remove that endpoint from this routing profile as well?</source>
     <message>
         <source>Ignored without a Hop Interval; set one as well, for example 30s with a maximum of 60s.</source>
         <translation>Игнорируется без «Hop Interval»; задайте и его, например 30s при максимуме 60s.</translation>
-    </message>
-    <message>
-        <source>Hysteria v1 needs both Up Mbps and Down Mbps, for example 100.</source>
-        <translation>Для Hysteria v1 нужны и «Up Mbps», и «Down Mbps», например 100.</translation>
     </message>
     <message>
         <source>Packet sizes must be from 0 to 2048; 0 uses the default.</source>
@@ -14660,6 +14774,14 @@ Remove that endpoint from this routing profile as well?</source>
     <message>
         <source>XDRIVE needs Mux: set it to On or Keep Default.</source>
         <translation>Для XDRIVE нужен Mux: выберите «Вкл.» или «По умолчанию».</translation>
+    </message>
+    <message>
+        <source>Hysteria v1 needs both Up Mbps and Down Mbps; %1 up and %2 down is used for a missing one. Set your real line speed for the best results.</source>
+        <translation>Для Hysteria v1 нужны и «Up Mbps», и «Down Mbps»; вместо отсутствующего значения используется %1 на отдачу и %2 на загрузку. Для лучшего результата укажите реальную скорость канала.</translation>
+    </message>
+    <message>
+        <source>Use two-letter country codes separated by commas, for example DE,NL,FR; put ! before a code to exclude that country, for example !RU.</source>
+        <translation>Используйте двухбуквенные коды стран через запятую, например DE,NL,FR; поставьте ! перед кодом, чтобы исключить страну, например !RU.</translation>
     </message>
 </context>
 </TS>
