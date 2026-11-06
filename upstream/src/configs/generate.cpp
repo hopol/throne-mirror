@@ -1,6 +1,7 @@
 #include "include/configs/generate.h"
 #include "include/api/RPC.h"
 #include "include/configs/AutoSelectorPlan.h"
+#include "include/configs/common/ResolverSource.h"
 #include "include/configs/common/utils.h"
 #include "include/global/Configs.hpp"
 
@@ -61,7 +62,6 @@ namespace Configs {
             constexpr auto dnsEchPrefix = "dns-ech";
 
             constexpr auto dnsIn = "dns-in";
-            constexpr auto dnsSystem = "dns-system";
             constexpr auto mixedIn = "mixed-in";
             constexpr auto tunIn = "tun-in";
             constexpr auto xrayFullConfigIn = "throne-bridge";
@@ -209,6 +209,8 @@ namespace Configs {
             QList<QString> vpnAuxTags;
             // Names whose HTTPS record a hop's ECH needs to fetch; they must not resolve over the proxy they unlock.
             QStringList echQueryNames;
+            // DNS tunnel domains; a loopback stub resolver forwarding them back through the Tun must not reach dns-remote.
+            QStringList dnsTunnelDomains;
             // The main-profile tunnel set to Strict tunnel DNS; its resolvers take every remote query.
             QString vpnStrictTag;
             QList<QString> xrayIngressTags;
@@ -232,11 +234,6 @@ namespace Configs {
 #else
             return ctx.tunEnabled && !ctx.forTest && dataManager->settingsRepo->vpn_l3_bridge;
 #endif
-        }
-
-        // The core points macOS's system resolver at this lo0 alias, and drops the inbound when it cannot take the address.
-        bool systemDnsInbound(const BuildContext &ctx) {
-            return ctx.os == Darwin && ctx.tunEnabled && !ctx.forTest;
         }
 
         // preferred_by matches only during pre-match, leaving the copy inert at L4.
@@ -494,6 +491,7 @@ namespace Configs {
         private:
             GenerateEndpointCache cache_;
             GenerateEndpointCache *previous_;
+            const ResolverSourceScope resolvers_;
         };
 
         enum class GenerateServerless { None, Missing, NoServer, Realm };
@@ -502,7 +500,7 @@ namespace Configs {
             if (profile == nullptr || profile->outbound == nullptr) return GenerateServerless::Missing;
             const auto &type = profile->type;
             if (type == "chain" || type == "custom" || type == "extracore" || type == "tailscale" ||
-                type == "autoselector" || type == "direct" || profile->outbound->IsExtraCore() ||
+                type == "autoselector" || type == "direct" || type == "dnstt" || type == "masterdns" || profile->outbound->IsExtraCore() ||
                 profile->outbound->IsXrayFullConfig())
                 return GenerateServerless::NoServer;
             if (const auto *hy = profile->Hysteria(); hy != nullptr && hy->RealmActive())
@@ -740,17 +738,7 @@ namespace Configs {
             // A verbatim raw profile takes no twins, and an unreachable bridge still starts a tun.
             ctx.l3Bridge = l3BridgeEnabled(ctx) && !(routeChain->isRaw && routeChain->preventModifications);
 
-            const bool warpMissing = settings.warp_mode == "masque"
-                ? settings.warp_masque_private_key.isEmpty() ||
-                  settings.warp_masque_peer_public_key.isEmpty() ||
-                  settings.warp_masque_ep.isEmpty() ||
-                  settings.warp_masque_ifc_addrs.isEmpty()
-                : settings.warp_private_key.isEmpty() ||
-                  settings.warp_public_key.isEmpty() ||
-                  settings.warp_ep.isEmpty() ||
-                  settings.warp_ifc_addrs.isEmpty() ||
-                  (settings.warp_mode == "amnezia" && settings.warp_amnezia_packets.isEmpty());
-            if (settings.enable_warp && warpMissing) {
+            if (settings.enable_warp && !WarpConfigured(settings.warp_mode)) {
                 ctx.error = "Warp is enabled but its config has not been generated. Please generate the Warp config first in Routing Settings.";
                 return;
             }
@@ -1043,10 +1031,6 @@ namespace Configs {
                 if (ctx.isResolvedUsed && (ctx.tunEnabled || ctx.forTest || dataManager->settingsRepo->kill_switch)) {
                     return {{"type", "underlying"}};
                 }
-                // A macOS Tun points the system resolver at its dns-system inbound, which `local` would query and loop through (#2045).
-                if (ctx.os == Darwin && (ctx.tunEnabled || ctx.forTest)) {
-                    return {{"type", "underlying"}};
-                }
                 return {{"type", "local"}};
             }
             if (parsed.type == "dhcp") {
@@ -1201,6 +1185,14 @@ namespace Configs {
                 headRules += QJsonObject{
                     {"domain", QJsonArray::fromStringList(ctx.echQueryNames)},
                     {"query_type", QJsonArray{"HTTPS"}},
+                    {"action", "route"},
+                    {"server", tags::dnsDirect},
+                };
+            }
+
+            if (!ctx.forTest && !ctx.dnsTunnelDomains.isEmpty()) {
+                headRules += QJsonObject{
+                    {"domain_suffix", QJsonArray::fromStringList(ctx.dnsTunnelDomains)},
                     {"action", "route"},
                     {"server", tags::dnsDirect},
                 };
@@ -1400,15 +1392,6 @@ namespace Configs {
                 {"listen", settings.core_dns_in_lan ? "::" : "127.0.0.1"},
                 {"listen_port", settings.core_dns_in_port}
             });
-            if (systemDnsInbound(ctx)) {
-                inbounds.prepend(QJsonObject{
-                    {"tag", tags::dnsSystem},
-                    {"type", "direct"},
-                    {"listen", "127.0.0.53"},
-                    {"listen_port", 53},
-                    {"reuse_addr", true},
-                });
-            }
 
             QJSONARRAY_ADD(inbounds, QString2QJsonObject(settings.custom_inbound)["inbounds"].toArray())
             ctx.result->coreConfig["inbounds"] = inbounds;
@@ -1588,6 +1571,18 @@ namespace Configs {
             }
         }
 
+        void collectDnsTunnelDomains(BuildContext &ctx, const Profile &hop) {
+            QStringList domains;
+            if (const auto *dnstt = hop.Dnstt()) domains << dnstt->domain;
+            if (const auto *masterDns = hop.MasterDns()) domains << masterDns->domains;
+            for (const auto &domain : domains) {
+                // sing-box lower-cases the query name but matches domain_suffix entries verbatim.
+                auto name = toAceHost(domain.trimmed()).toLower();
+                if (name.endsWith(u'.')) name.chop(1);
+                if (!name.isEmpty() && !ctx.dnsTunnelDomains.contains(name)) ctx.dnsTunnelDomains << name;
+            }
+        }
+
         void buildSingboxChain(BuildContext &ctx, const QList<std::shared_ptr<Profile>> &ents, const hopChainOptions &opts) {
             for (int idx = 0; idx < ents.size(); idx++)
             {
@@ -1624,6 +1619,7 @@ namespace Configs {
                 }
                 object["tag"] = tag;
                 collectEchQueryName(ctx, *ent);
+                collectDnsTunnelDomains(ctx, *ent);
                 // Realm reads its STUN resolver off this key only; without it the hosts go through DNS rules.
                 if (auto hy = ent->Hysteria(); hy != nullptr && hy->RealmActive())
                     object["domain_resolver"] = QJsonObject{{"server", tags::dnsDirect}};
@@ -2301,15 +2297,7 @@ namespace Configs {
                 QJsonObject resolve;
                 QJsonObject dnsHijack;
                 QJsonObject dnsInReject;
-                QJsonObject dnsSystem;
             } injected;
-
-            if (systemDnsInbound(ctx)) {
-                injected.dnsSystem = QJsonObject{
-                    {"inbound", tags::dnsSystem},
-                    {"action", "hijack-dns"},
-                };
-            }
 
             if (!routeChain->isRaw) {
                 injected.sniff = QJsonObject{{"action", "sniff"}};
@@ -2419,7 +2407,6 @@ namespace Configs {
             for (const auto& r : bridgeRules) routeRules.append(r);
             if (!extraCoreDirect.isEmpty()) routeRules.append(extraCoreDirect);
             auto appendIfSet = [&routeRules](const QJsonObject& r) { if (!r.isEmpty()) routeRules.append(r); };
-            appendIfSet(injected.dnsSystem);
             appendIfSet(injected.sniff);
             appendIfSet(injected.resolve);
             appendIfSet(injected.dnsHijack);
@@ -3487,5 +3474,21 @@ namespace Configs {
     void SplitWarpEndpoint(const QString &endpoint, int defaultPort, QString &host, int &port)
     {
         splitWarpEndpoint(endpoint, defaultPort, host, port);
+    }
+
+    bool WarpConfigured(const QString &mode)
+    {
+        const auto &settings = *dataManager->settingsRepo;
+        if (mode == "masque") {
+            return !settings.warp_masque_private_key.isEmpty() &&
+                   !settings.warp_masque_peer_public_key.isEmpty() &&
+                   !settings.warp_masque_ep.isEmpty() &&
+                   !settings.warp_masque_ifc_addrs.isEmpty();
+        }
+        return !settings.warp_private_key.isEmpty() &&
+               !settings.warp_public_key.isEmpty() &&
+               !settings.warp_ep.isEmpty() &&
+               !settings.warp_ifc_addrs.isEmpty() &&
+               !(mode == "amnezia" && settings.warp_amnezia_packets.isEmpty());
     }
 }

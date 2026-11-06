@@ -244,6 +244,7 @@ namespace Engine {
             if (connectionState() != ConnectionState::Idle) return;
             start(StartRequest{profileId, false});
         });
+        connect(EngineEvents::instance(), &EngineEvents::routingRestartNeeded, this, [this] { noteRestartNeeded(RestartReason::Routing); });
         // Queued and connected before the window's model refresh, so posted-event order clears the cache first.
         auto *ipLists = Scanner::IpListUpdater::instance();
         connect(ipLists, &Scanner::IpListUpdater::listsChanged, this, [] { Configs::InvalidateEndpointDisplayCache(); }, Qt::QueuedConnection);
@@ -434,6 +435,18 @@ namespace Engine {
     std::optional<LiveRates> EngineHost::freshLiveRates(qint64 maxAgeMs) const {
         if (m_connection->runningSnapshot() == nullptr) return std::nullopt;
         return m_stats->freshLiveRates(maxAgeMs);
+    }
+
+    void EngineHost::watchConnections() {
+        m_stats->watchConnections();
+    }
+
+    ConnectionSnapshot EngineHost::connectionSnapshot() const {
+        return m_stats->connectionSnapshot();
+    }
+
+    void EngineHost::closeConnections(const QStringList &ids, const std::function<void(const ConnectionCloseResult &)> &done) {
+        StatsService::closeConnections(ids, done);
     }
 
     bool EngineHost::testsRunning() {

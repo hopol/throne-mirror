@@ -160,6 +160,10 @@ set(PROJECT_SOURCES
         src/api/remote/RouterManage.cpp
         src/api/remote/RouterBackup.cpp
         src/api/remote/RouterFeeds.cpp
+        src/api/remote/RouterProfileConfig.cpp
+        src/api/remote/RouterRoutes.cpp
+        src/api/remote/RouterConnections.cpp
+        src/api/remote/RouterWarp.cpp
 
         src/stats/traffic/TrafficLooper.cpp
         include/stats/traffic/TrafficLine.hpp
@@ -245,6 +249,8 @@ set(PROJECT_SOURCES
         src/ui/widget/LiveChart.cpp
         include/ui/widget/MuxSettingsWidget.h
         src/ui/widget/MuxSettingsWidget.cpp
+        include/ui/widget/ResolverSourceWidget.h
+        src/ui/widget/ResolverSourceWidget.cpp
         include/ui/widget/json/JsonTree.h
         src/ui/widget/json/JsonTree.cpp
         include/ui/widget/json/JsonValidator.h
@@ -278,6 +284,7 @@ set(PROJECT_SOURCES
         include/ui/utils/ScreenQrScanner.h
         src/ui/utils/ScreenQrScanner.cpp
         include/ui/utils/NoWheelComboBox.h
+        include/ui/utils/MyPlainTextEdit.h
         include/ui/utils/GuiUtils.hpp
         include/ui/utils/ValidationForm.h
         src/ui/utils/ValidationForm.cpp
@@ -294,6 +301,7 @@ set(PROJECT_SOURCES
         src/ui/profile/dialog_edit_profile_xray.cpp
         src/ui/profile/dialog_edit_profile_xhttp.cpp
         src/ui/profile/dialog_edit_profile_xdrive.cpp
+        src/ui/profile/dialog_edit_profile_kcp.cpp
         include/ui/profile/dialog_edit_profile.ui
         include/ui/group/dialog_edit_group.h
         src/ui/group/dialog_edit_group.cpp
@@ -517,6 +525,12 @@ set(PROJECT_SOURCES
         src/ui/profile/edit_ssh.cpp
         include/ui/profile/edit_ssh.h
         include/ui/profile/edit_ssh.ui
+        src/ui/profile/edit_dnstt.cpp
+        include/ui/profile/edit_dnstt.h
+        include/ui/profile/edit_dnstt.ui
+        src/ui/profile/edit_masterdns.cpp
+        include/ui/profile/edit_masterdns.h
+        include/ui/profile/edit_masterdns.ui
         include/stats/connections/connectionLister.hpp
         src/stats/connectionLister/connectionLister.cpp
         include/sys/windows/eventHandler.h
@@ -537,6 +551,10 @@ set(PROJECT_SOURCES
         src/configs/common/transport.cpp
         src/configs/common/Outbound.cpp
         src/configs/common/OutboundFactory.cpp
+        include/configs/common/ResolverSource.h
+        src/configs/common/ResolverSource.cpp
+        include/configs/common/DnsTunnel.h
+        src/configs/common/DnsTunnel.cpp
         include/configs/outbounds/socks.h
         include/configs/outbounds/http.h
         include/configs/outbounds/shadowsocks.h
@@ -579,6 +597,10 @@ set(PROJECT_SOURCES
         src/configs/outbounds/openvpn.cpp
         include/configs/outbounds/openconnect.h
         src/configs/outbounds/openconnect.cpp
+        include/configs/outbounds/dnstt.h
+        src/configs/outbounds/dnstt.cpp
+        include/configs/outbounds/masterdns.h
+        src/configs/outbounds/masterdns.cpp
         src/configs/outbounds/custom.cpp
         include/configs/generate.h
         src/configs/generate.cpp
@@ -745,6 +767,10 @@ set(ENGINE_SOURCES
         src/engine/services/AssetUpdates.cpp
         include/engine/services/StatsService.h
         src/engine/services/StatsService.cpp
+        include/engine/services/RouteService.h
+        src/engine/services/RouteService.cpp
+        include/engine/services/WarpService.h
+        src/engine/services/WarpService.cpp
         include/engine/tests/TestObserver.h
         include/engine/tests/TestRunner.h
         src/engine/tests/TestRunner.cpp

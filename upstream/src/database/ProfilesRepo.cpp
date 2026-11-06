@@ -45,6 +45,7 @@ namespace Configs {
             db.exec("ALTER TABLE profiles ADD COLUMN endpoint_json TEXT NOT NULL DEFAULT '{}'");
 
         db.exec("CREATE INDEX IF NOT EXISTS idx_profiles_name ON profiles(name)");
+        db.exec("CREATE INDEX IF NOT EXISTS idx_profiles_type ON profiles(type)");
     }
 
     bool ProfilesRepo::profilesColumnExists(const char* columnName) const {
@@ -473,6 +474,16 @@ namespace Configs {
             while (query->executeStep()) {
                 ids.append(query->getColumn(0).getInt());
             }
+        }
+        return ids;
+    }
+
+    QList<int> ProfilesRepo::GetProfileIdsByTypeContaining(const QString& type, const QString& needle) const {
+        QList<int> ids;
+        auto query = db.query("SELECT id FROM profiles WHERE type = ? AND instr(lower(outbound_json), ?) > 0 ORDER BY id",
+                              type.toStdString(), needle.toLower().toStdString());
+        if (query) {
+            while (query->executeStep()) ids.append(query->getColumn(0).getInt());
         }
         return ids;
     }

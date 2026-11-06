@@ -1,3 +1,99 @@
+#### 1.4.0
+
+* Introducing Simple interface mode **1**
+* Introducing Headless mode, Throne API and Web UI **2**
+* Add DNS tunnels: dnstt/VayDNS, MasterDNS/StormDNS and XDNS **3**
+* Add IP Scanner **4**
+* Add Kill switch **5**
+* Add per-group routing profiles and subscription routing import
+* Add DNS settings to route profiles and an enable/disable toggle for route rules
+* Add Ctrl+K command palette for commands and settings
+* Add WebDAV backup **6**
+* Add AmneziaWG mode to WARP and improve WARP MASQUE
+* Add Amnezia auto l-values generator
+* Add XDRIVE transport for Xray
+* Add option to serve DNS to other devices
+* Add multi-group auto selector support and country exclusion with `!XX`
+* Add input validation
+* Improve log navigation and filtering
+* Improve custom themes
+* Rework macOS Tun DNS
+* Remove hijack and redirect features
+* Update sing-box and enforce go Tun stack
+* Update Qt to 6.12 and Go to 1.27, and lower the glibc requirement of the Linux builds to 2.28 **7**
+* Add Homebrew cask and apt/aur/rpm repositories **8**
+* Fixes and Improvements
+
+**1**:
+New installs now start in Simple mode, which hides advanced options. Hidden options keep their values and still apply. Switch modes through Program > Advanced Mode or Basic Settings > Style > Interface.
+
+**2**:
+Throne can now run without a GUI through Docker or as a service, for routers, VMs and other machines without a desktop. Both headless and desktop Throne can be controlled remotely through the Throne API, using the `thronectl` tool or the library from [Throne-api](https://github.com/throneproj/Throne-api). `thronectl web` serves a password-protected web UI. Refer to the [documentation](https://throneproj.github.io/headless/thronectl/) for more details.
+
+**3**:
+Refer to the [documentation](https://throneproj.github.io/advanced/dns_tunnels/) for more details.
+
+**4**:
+The IP Scanner tests a list of IPs for specific traits, such as a TLS handshake or a URL test through a profile, to find reachable CDN or WARP ranges.
+
+**5**:
+When enabled, no traffic can leave the device (except some LAN/discovery ranges) unless it is tunneled through Throne.
+
+**6**:
+Backups can now be uploaded to and restored from any WebDAV server (Nextcloud, a NAS, Yandex Disk, ...) through the Backup section of Basic Settings. The WebDAV credentials stay on the device and are never included in a backup.
+
+**7**:
+The main macOS builds now require macOS 14.4 or newer; older macOS versions should use the `macoslegacy` build. The zip, deb and rpm builds that bundle Qt now run on older distributions such as Ubuntu 20.04, Debian 11 and RHEL/AlmaLinux 8.
+
+**8**:
+Stable releases are now published to Throne's own Homebrew tap (`brew install --cask throneproj/tap/throne`) and to apt, rpm and AUR repositories. Refer to the [documentation](https://throneproj.github.io/get_started/installation/) for more details.
+
+#### 1.4.0-beta.6
+
+* Add DNS tunnels: dnstt/VayDNS, MasterDNS/StormDNS and XDNS **1**
+* Improve custom themes
+* Rework macOS Tun DNS
+* Lower the glibc requirement of the Linux builds to 2.28 **2**
+* Update sing-box
+* Fixes and Improvements
+
+**1**:
+DNS tunnels carry traffic inside DNS queries sent through public resolvers, for networks where little else gets through. They can be imported from `dnst://`, `slipnet://`, `masterdns://` and `stormdns://` links or added by hand, and the IP scanner can test resolvers for them. Refer to the [documentation](https://throneproj.github.io/advanced/dns_tunnels/) for more details.
+
+**2**:
+The zip, deb and rpm builds that bundle Qt now run on older distributions such as Ubuntu 20.04, Debian 11 and RHEL/AlmaLinux 8. This does not affect system-qt builds.
+
+#### 1.4.0-beta.5
+
+* Add About dialog and move Check for Update to the Program menu
+* Show the release notes in the update dialog
+* Show the sort indicator in the profiles table
+* Add Xray Mux to Preset Settings and allow custom per-profile Xray Mux, with a Max Connections limit
+* Add AmneziaWG mode to WARP
+* Add option to serve DNS to other devices
+* Allow excluding countries in the auto selector with `!XX`
+* Start the auto selector as soon as enough profiles work
+* Reconnect when a subscription update replaces the running profile
+* Limit the data view to two lines, with the rest in its tooltip
+* Fix Hysteria2 links with `none` or `plain` obfs
+* Fix Xray XHTTP connections staying open after tests and profile switches
+* Fix DNS loop on macOS in Tun mode
+* Fix links and files opened with Throne being imported again after a restart
+* Update sing-box and Xray, and add S3 storage to XDRIVE
+* Introducing Simple interface mode **1**
+* Add per-group routing profiles and subscription routing import **2**
+* Add Web UI **3**
+* Fixes and Improvements
+
+**1**:
+New installs now start in Simple mode, which hides advanced options and merges sparse settings tabs. Hidden options keep their values and still apply. Switch modes through Program > Advanced Mode or Basic Settings > Style > Interface; existing installs stay in Advanced mode.
+
+**2**:
+Each group can now use its own routing profile instead of the one chosen in the Routing menu. Subscription groups can also import the routing profile their provider sends (Happ format) on every update; that routing profile belongs to the group and is deleted along with it. DNS settings from the subscription are never used.
+
+**3**:
+`thronectl web` serves a password-protected web UI for headless and desktop Throne, to switch and test profiles, manage groups and subscriptions, follow traffic and logs, change settings, and back up and restore. The Docker image starts it when `THRONE_WEB_LISTEN` is set, and the deb/rpm packages ship a `throne-web` service. Refer to the [documentation](https://throneproj.github.io/headless/web/) for more details.
+
 #### 1.4.0-beta.4
 
 * Add DNS settings to route profiles
