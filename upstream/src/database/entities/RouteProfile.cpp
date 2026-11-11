@@ -252,11 +252,9 @@ namespace Configs {
     }
 
     QString RouteDns::Problem() const {
-        DnsAddress parsed;
-        QString why;
-        if (!ParseDnsAddress(remote_dns, &parsed, &why))
+        if (const auto why = DnsAddressListProblem(remote_dns); !why.isEmpty())
             return QCoreApplication::translate("Validation", "Remote DNS \"%1\": %2").arg(remote_dns, why);
-        if (!ParseDnsAddress(direct_dns, &parsed, &why))
+        if (const auto why = DnsAddressListProblem(direct_dns); !why.isEmpty())
             return QCoreApplication::translate("Validation", "Direct DNS \"%1\": %2").arg(direct_dns, why);
         if (dns_final_out != "remote" && dns_final_out != "direct")
             return QCoreApplication::translate("Validation", "The default DNS server must be remote or direct, not \"%1\".").arg(dns_final_out);
@@ -863,8 +861,9 @@ namespace Configs {
         return res;
     }
 
-    QJsonArray RouteProfile::get_route_rules(bool forView, std::map<int, QString> outboundMap) {
+    QJsonArray RouteProfile::get_route_rules(bool forView, std::map<int, QString> outboundMap, QList<int>* sourceIndexes) {
         QJsonArray res;
+        if (sourceIndexes) sourceIndexes->clear();
         bool added_adblock = false;
         auto createAdblockRule = []() -> QJsonObject {
             QJsonObject obj;
@@ -874,7 +873,8 @@ namespace Configs {
             obj["rule_set"] = jarray;
             return obj;
         };
-        for (const auto &item: Rules) {
+        for (qsizetype index = 0; index < Rules.size(); index++) {
+            const auto &item = Rules.at(index);
             if (item->disabled || (item->type != custom && item->isEmpty())) continue;
             auto outboundTag = QString();
             if (outboundMap.contains(item->outboundID)) outboundTag = outboundMap[item->outboundID];
@@ -886,16 +886,21 @@ namespace Configs {
             auto rule_json = item->get_rule_json(forView, outboundTag);
             if (rule_json.empty()) {
                 MW_show_log("Aborted generating routing section, an error has occurred");
+                if (sourceIndexes) sourceIndexes->clear();
                 return {};
             }
             if (!added_adblock && Configs::dataManager->settingsRepo->adblock_enable && rule_json["action"] == "route") {
                 res += createAdblockRule();
+                if (sourceIndexes) sourceIndexes->append(-1);
                 added_adblock = true;
-            }                
+            }
             res += rule_json;
+            if (sourceIndexes) sourceIndexes->append(static_cast<int>(index));
         }
-        if (!added_adblock && Configs::dataManager->settingsRepo->adblock_enable)
+        if (!added_adblock && Configs::dataManager->settingsRepo->adblock_enable) {
             res += createAdblockRule();
+            if (sourceIndexes) sourceIndexes->append(-1);
+        }
 
         return res;
     }

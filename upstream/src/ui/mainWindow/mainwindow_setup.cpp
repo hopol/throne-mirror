@@ -26,6 +26,7 @@
 #include "include/scanner/IpListUpdater.h"
 #include "include/scanner/ScanManager.h"
 #include "include/ui/stats/dialog_auto_selector.h"
+#include "include/ui/setting/dialog_rule_tester.h"
 #include "include/sys/KillSwitch.hpp"
 #include "include/sys/AutoRun.hpp"
 #include "include/sys/UrlScheme.hpp"
@@ -502,6 +503,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             connect(actionShowOutIP, &QAction::triggered, this, updateTestItemsToShow);
             connect(actionShowSpeed, &QAction::triggered, this, updateTestItemsToShow);
 
+            auto* actionShowServices = menu.addAction(tr("Services"));
+            actionShowServices->setCheckable(true);
+            actionShowServices->setChecked(group->show_service_checks);
+            connect(actionShowServices, &QAction::triggered, this, [this, group](bool checked) {
+                group->show_service_checks = checked;
+                Configs::dataManager->groupsRepo->Save(group);
+                if (group->calculated_column_width.size() > ProfilesTableModel::ColTestResult) {
+                    group->calculated_column_width[ProfilesTableModel::ColTestResult] = 0;
+                }
+                refresh_proxy_list();
+            });
+
             menu.addSeparator();
             auto* sortByLabel = menu.addAction(tr("Sort By:"));
             sortByLabel->setEnabled(false);
@@ -717,13 +730,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             ui->actionUrl_Test_Selected->setEnabled(false);
             ui->menu_resolve_selected->setEnabled(false);
             ui->actionResolve_Selected_Out_IP->setEnabled(false);
+            ui->actionService_Check_Selected->setEnabled(false);
         } else
         {
             ui->actionSpeedtest_Selected->setEnabled(true);
             ui->actionUrl_Test_Selected->setEnabled(true);
             ui->menu_resolve_selected->setEnabled(true);
             ui->actionResolve_Selected_Out_IP->setEnabled(true);
+            ui->actionService_Check_Selected->setEnabled(true);
         }
+        ui->menu_find_settings->setEnabled(get_now_selected_list().size() == 1);
         if (tests()->isRunning()) {
             ui->menu_server->addAction(ui->menu_stop_testing);
         } else {
@@ -764,6 +780,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             if (dialog->result() == QDialog::Accepted) {
                 if (Configs::dataManager->groupsRepo->Save(ent)) {
                     MW_dialog_message(MwMessage::GroupsChanged, dialog->RestartNeeded() ? QStringList{MwArg::RestartProxy} : QStringList{});
+                    if (dialog->RefreshNeeded()) Subscription::updater()->RefreshGroup(ent->id, nullptr, true);
                 } else {
                     MessageBoxWarning(tr("Edit current Group"), tr("This group was deleted while you were editing it."));
                 }
@@ -841,6 +858,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->menuRouting_Menu->addAction(actionWarp);
     ui->menuRouting_Menu->addMenu(profilesMenu);
     ui->menuRouting_Menu->addAction(ui->actionUpdate_Rule_Sets);
+    auto* actionRuleTester = new QAction(tr("Rule Tester…"), ui->menuRouting_Menu);
+    connect(actionRuleTester, &QAction::triggered, this, [this] {
+        const auto selected = get_now_selected_list();
+        const int preferred = selected.size() == 1 ? selected.first() : -1;
+        if (m_ruleTesterDialog == nullptr) {
+            m_ruleTesterDialog = new DialogRuleTester(connection(), preferred, this);
+            m_ruleTesterDialog->setAttribute(Qt::WA_DeleteOnClose);
+        } else {
+            m_ruleTesterDialog->setPreferredProfile(preferred);
+        }
+        ActivateWindow(m_ruleTesterDialog);
+    });
+    ui->menuRouting_Menu->addAction(actionRuleTester);
     ui->menuRouting_Menu->addSeparator();
 
     connect(ui->menuRouting_Menu, &QMenu::aboutToShow, this, [=,this]()
@@ -906,7 +936,33 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionResolve_Out_IP, &QAction::triggered, this, [=,this]() {
         tests()->runIpTests(Configs::dataManager->groupsRepo->CurrentGroup()->Profiles());
     });
-    connect(ui->menu_stop_testing, &QAction::triggered, this, [=,this]() { tests()->stop(); });
+    const auto startServiceChecks = [this](const QList<int>& ids) {
+        if (ids.size() > Engine::TestRunner::kMaxServiceCheckProfiles) {
+            MessageBoxWarning(tr("Service Check"), tr("A service check can test up to 100 profiles at a time. Select fewer profiles."));
+            return;
+        }
+        if (ids.size() > 20
+            && QMessageBox::question(this, tr("Service Check"),
+                                     tr("This checks %1 profiles. Each one sends about 20 requests to the checked services. Continue?").arg(ids.size()))
+                   != QMessageBox::StandardButton::Yes) {
+            return;
+        }
+        tests()->runServiceChecks(ids);
+    };
+    connect(ui->actionService_Check_Selected, &QAction::triggered, this, [this, startServiceChecks] {
+        startServiceChecks(get_now_selected_list());
+    });
+    connect(ui->actionService_Check_Group, &QAction::triggered, this, [startServiceChecks] {
+        if (const auto group = Configs::dataManager->groupsRepo->CurrentGroup()) startServiceChecks(group->Profiles());
+    });
+    ui->menu_stop_testing->setEnabled(false);
+    connect(ui->menu_stop_testing, &QAction::triggered, this, [this]() {
+        ui->menu_stop_testing->setEnabled(false);
+        dataViewHtmlGenerator_.markTestsStopping();
+        UpdateDataView(true);
+        // StopTests is a blocking RPC.
+        runOnNewThread([runner = tests()] { runner->stop(); });
+    });
     auto set_selected_or_group = [=,this](int mode) {
         // 0=group 1=select 2=unknown(menu is hide)
         ui->menu_server->setProperty("selected_or_group", mode);
@@ -997,6 +1053,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             connection()->applyPendingRestart();
         } else if (action == QLatin1String(DataViewHtmlGenerator::DismissRestartActionUrl)) {
             connection()->clearRestartNeeded();
+        } else if (action == QLatin1String(DataViewHtmlGenerator::StopTestsActionUrl)) {
+            ui->menu_stop_testing->trigger();
         }
     });
 }

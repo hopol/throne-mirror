@@ -5,6 +5,7 @@
 #include <QMap>
 #include <QMutex>
 #include <QPair>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QThreadPool>
@@ -18,6 +19,7 @@
 #endif
 
 #include "include/database/entities/Profile.h"
+#include "include/engine/tests/ServiceChecks.h"
 
 namespace Engine {
     class EnginePolicy;
@@ -31,6 +33,22 @@ namespace Engine {
 
         // Test threads, after each stored URL result (a profile may report twice); a late result poll can still call it after onFinished.
         using ResultHook = std::function<void(const std::shared_ptr<Configs::Profile>&)>;
+
+        struct ChainStepResult {
+            int hop = -1;
+            bool alone = false;
+            // Profile::latency semantics: ms, -1 failed, or kLatencyConnectOnly.
+            int latency = 0;
+            QString error;
+        };
+
+        struct ChainStepReport {
+            QString error;
+            QSet<int> invalidHops;
+            bool hasLanding = false;
+            bool aborted = false;
+            QList<ChainStepResult> results;
+        };
 
         // policy and observer outlive the runner; a null observer gets a no-op stand-in (headless).
         TestRunner(EnginePolicy* policy, TestObserver* observer, RunningSnapshot runningSnapshot);
@@ -47,8 +65,18 @@ namespace Engine {
 
         bool runIpTests(const QList<int>& profileIDs, const std::function<void()>& onFinished = {}, bool interactive = true);
 
+        // queueUrlTests for the IP test.
+        void queueIpTests(const QList<int>& profileIDs, const std::function<void()>& onFinished, bool interactive = true);
+
         bool runSpeedTests(const QList<int>& profileIDs, bool testCurrent = false,
                            const std::function<void()>& onFinished = {}, bool interactive = true);
+
+        // Never automatic: every profile sends about 20 requests to third-party services.
+        static constexpr int kMaxServiceCheckProfiles = 100;
+        bool runServiceChecks(const QList<int>& profileIDs, const std::function<void()>& onFinished = {}, bool interactive = true);
+
+        // Refused while another test runs. Saves nothing; onDone runs once, on a test thread.
+        bool runChainStepTest(const QList<int>& hops, int gid, const std::function<void(const ChainStepReport&)>& onDone);
 
         void stop();
 
@@ -86,10 +114,15 @@ namespace Engine {
 
         void runSpeedProbe(const Target& target);
 
+        void runServiceProbe(const Target& target, const std::shared_ptr<const ServiceChecks::Definitions>& definitions);
+
         void applyUrlResult(const std::shared_ptr<Configs::Profile>& ent, const libcore::URLTestResp& res,
                             const QHash<QString, bool>* vpnConnected = nullptr);
 
         void applyIpResult(const std::shared_ptr<Configs::Profile>& ent, const libcore::IPTestRes& res);
+
+        void applyServiceResult(const std::shared_ptr<Configs::Profile>& ent, const libcore::ServiceTestResult& res,
+                                const QList<ServiceChecks::Category>& categories);
 
         QString contextName(int entID) const;
 

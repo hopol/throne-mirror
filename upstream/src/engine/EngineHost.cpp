@@ -186,6 +186,7 @@ namespace Engine {
         engineHostInstance = nullptr;
         detachFrontEnd();
         Subscription::updater()->SetUrlTester(nullptr);
+        Subscription::updater()->SetCountryTester(nullptr);
         Lifecycle::SetStopHandler({});
         delete m_router;
         m_autoSelector.reset();
@@ -256,6 +257,9 @@ namespace Engine {
 
         Subscription::updater()->SetUrlTester([this](const QList<int> &profileIDs, bool interactive, const Subscription::GroupUpdater::Finish &done) {
             m_tests->queueUrlTests(profileIDs, done, interactive);
+        });
+        Subscription::updater()->SetCountryTester([this](const QList<int> &profileIDs, bool interactive, const Subscription::GroupUpdater::Finish &done) {
+            m_tests->queueIpTests(profileIDs, done, interactive);
         });
 
         Dashboard::SeedClashUi();
@@ -461,6 +465,7 @@ namespace Engine {
         switch (kind) {
             case Engine::TestKind::Latency: return m_tests->runUrlTests(profileIds, onFinished, false);
             case Engine::TestKind::Ip: return m_tests->runIpTests(profileIds, onFinished, false);
+            case Engine::TestKind::Service: return m_tests->runServiceChecks(profileIds, onFinished, false);
             case Engine::TestKind::Speed: break;
         }
         return m_tests->runSpeedTests(profileIds, false, onFinished, false);

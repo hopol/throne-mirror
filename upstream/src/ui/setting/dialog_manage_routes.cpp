@@ -18,6 +18,8 @@
 #include <QScreen>
 #include <QGridLayout>
 #include <QFormLayout>
+#include <QGroupBox>
+#include <QLineEdit>
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QRegularExpression>
@@ -71,12 +73,6 @@ namespace {
     // Shown before import: those servers would see every query made while the profile is in use.
     QString manageRoutesDnsNote(const Configs::RouteDns &dns) {
         return DialogManageRoutes::tr("It uses its own DNS servers: remote %1, direct %2.").arg(dns.remote_dns, dns.direct_dns);
-    }
-
-    QString manageRoutesDnsProblem(const QString &text) {
-        Configs::DnsAddress parsed;
-        QString why;
-        return Configs::ParseDnsAddress(text, &parsed, &why) ? QString() : why;
     }
 
     // dns-local resolves the other servers' names, so it cannot depend on one itself.
@@ -181,6 +177,60 @@ namespace {
             if (!popupForm->validateAll()) return;
             Configs::dataManager->settingsRepo->warp_api_hosts = normalizeWarpApiHosts(tEdit->toPlainText());
             Configs::dataManager->settingsRepo->Save();
+            w->accept();
+        });
+        QObject::connect(buttons, &QDialogButtonBox::rejected, w, &QDialog::reject);
+
+        w->resize(w->sizeHint().boundedTo(parent->screen()->availableGeometry().size()));
+        w->exec();
+        w->deleteLater();
+    }
+
+    void editWarpAdvanced(QWidget *parent) {
+        auto w = new QDialog(parent);
+        w->setWindowTitle(DialogManageRoutes::tr("Advanced WARP Settings"));
+        w->setWindowModality(Qt::ApplicationModal);
+
+        auto *settings = Configs::dataManager->settingsRepo.get();
+        auto layout = new QVBoxLayout(w);
+
+        auto registration = new QGroupBox(DialogManageRoutes::tr("Registration"), w);
+        auto registrationForm = new QFormLayout(registration);
+        auto hint = new QLabel(DialogManageRoutes::tr("Applies only when registration connects directly, not through a running profile."),
+                               registration);
+        hint->setWordWrap(true);
+        registrationForm->addRow(hint);
+        auto fragment = new QCheckBox(DialogManageRoutes::tr("Fragment TLS"), registration);
+        fragment->setChecked(settings->warp_api_tls_fragment);
+        registrationForm->addRow(fragment);
+        auto recordFragment = new QCheckBox(DialogManageRoutes::tr("Record fragment"), registration);
+        recordFragment->setChecked(settings->warp_api_tls_record_fragment);
+        registrationForm->addRow(recordFragment);
+        auto fallbackDelay = new QLineEdit(settings->warp_api_tls_fragment_fallback_delay, registration);
+        fallbackDelay->setPlaceholderText(QStringLiteral("500ms"));
+        registrationForm->addRow(DialogManageRoutes::tr("Fallback delay"), fallbackDelay);
+        const auto syncFallbackDelay = [=] {
+            fallbackDelay->setEnabled(fragment->isChecked());
+            if (auto *label = registrationForm->labelForField(fallbackDelay)) label->setEnabled(fragment->isChecked());
+        };
+        QObject::connect(fragment, &QCheckBox::toggled, w, syncFallbackDelay);
+        syncFallbackDelay();
+        layout->addWidget(registration);
+
+        auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, w);
+        layout->addWidget(buttons);
+
+        auto popupForm = new Validation::Form(w);
+        popupForm->attachStatus(buttons);
+        popupForm->bind(fallbackDelay, Validation::Rules::Duration());
+        popupForm->markAll();
+
+        QObject::connect(buttons, &QDialogButtonBox::accepted, w, [=] {
+            if (!popupForm->validateAll()) return;
+            settings->warp_api_tls_fragment = fragment->isChecked();
+            settings->warp_api_tls_record_fragment = recordFragment->isChecked();
+            settings->warp_api_tls_fragment_fallback_delay = fallbackDelay->text().trimmed();
+            settings->Save();
             w->accept();
         });
         QObject::connect(buttons, &QDialogButtonBox::rejected, w, &QDialog::reject);
@@ -530,6 +580,7 @@ DialogManageRoutes::DialogManageRoutes(QWidget *parent) : QDialog(parent), ui(ne
     connect(ui->warp_mode, &QComboBox::currentIndexChanged, this, showWarpMode);
     connect(ui->warp_autogen, &QPushButton::clicked, this, &DialogManageRoutes::generate_warp_config);
     connect(ui->warp_api_hosts_btn, &QPushButton::clicked, this, [this] { editWarpApiHosts(this); });
+    connect(ui->warp_advanced_btn, &QPushButton::clicked, this, [this] { editWarpAdvanced(this); });
 
     // A custom DNS object greys out the DNS fields, so Simple mode keeps its switch beside them while it is on.
     if (ui->use_dns_object->isChecked()) {
@@ -539,8 +590,8 @@ DialogManageRoutes::DialogManageRoutes(QWidget *parent) : QDialog(parent), ui(ne
     UiMode::Apply(this);
     UiMode::Fold(this);
 
-    form->bind(ui->remote_dns, manageRoutesDnsProblem).label(ui->label_9->text());
-    form->bind(ui->direct_dns, manageRoutesDnsProblem).label(ui->label_8->text());
+    form->bind(ui->remote_dns, Configs::DnsAddressListProblem).label(ui->label_9->text());
+    form->bind(ui->direct_dns, Configs::DnsAddressListProblem).label(ui->label_8->text());
     form->bind(ui->local_override, manageRoutesLocalDnsProblem).label(ui->label_2->text());
     // buildDNSSection would emit an unparsable object as "dns": {}, silently dropping every DNS setting.
     form->addRule({ui->use_dns_object}, [this] {
@@ -695,8 +746,8 @@ void DialogManageRoutes::accept() {
     Configs::dataManager->settingsRepo->default_domain_strategy = ui->default_domain_strategy->currentText();
     Configs::dataManager->settingsRepo->use_dns_object = ui->use_dns_object->isChecked();
     Configs::dataManager->settingsRepo->dns_object = dns_object_text;
-    const auto remoteDns = ui->remote_dns->currentText().trimmed();
-    const auto directDns = ui->direct_dns->currentText().trimmed();
+    const auto remoteDns = Configs::NormalizeDnsAddressList(ui->remote_dns->currentText());
+    const auto directDns = Configs::NormalizeDnsAddressList(ui->direct_dns->currentText());
     if (remoteDns != Configs::dataManager->settingsRepo->remote_dns)
         DnsServerHistory::Remember(Configs::dataManager->settingsRepo->remote_dns_history, DnsServerHistory::RemotePresets(), remoteDns);
     if (directDns != Configs::dataManager->settingsRepo->direct_dns)

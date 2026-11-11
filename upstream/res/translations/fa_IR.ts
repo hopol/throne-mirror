@@ -281,6 +281,50 @@ Deleted %3 Profiles:
         <source>[Routing] %1: updated the routing profile &quot;%2&quot; from the subscription (%3)</source>
         <translation>[مسیریابی] %1: نمایه مسیریابی «%2» از اشتراک به‌روز شد (%3)</translation>
     </message>
+    <message>
+        <source>Service check, %1</source>
+        <translation>بررسی سرویس‌ها، %1</translation>
+    </message>
+    <message>
+        <source>Available</source>
+        <translation>در دسترس</translation>
+    </message>
+    <message>
+        <source>Partial</source>
+        <translation>نسبی</translation>
+    </message>
+    <message>
+        <source>Restricted</source>
+        <translation>محدود</translation>
+    </message>
+    <message>
+        <source>Blocked</source>
+        <translation>مسدود</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>نامشخص</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>ناموفق</translation>
+    </message>
+    <message>
+        <source>IP</source>
+        <translation>IP</translation>
+    </message>
+    <message>
+        <source>risk %1</source>
+        <translation>ریسک %1</translation>
+    </message>
+    <message>
+        <source>Choose the profile to find working settings for</source>
+        <translation>نمایه‌ای را که برایش تنظیمات کارا پیدا شود انتخاب کنید</translation>
+    </message>
+    <message>
+        <source>The profile could not be copied</source>
+        <translation>نمایه کپی نشد</translation>
+    </message>
 </context>
 <context>
     <name>DialogAbout</name>
@@ -842,6 +886,83 @@ Deleted %3 Profiles:
     <message>
         <source>Each update saves the routing profile the subscription provides (Happ format) as this group&apos;s own routing profile. DNS settings from the subscription are never used.</source>
         <translation>هر به‌روزرسانی، نمایه مسیریابی ارائه‌شده توسط اشتراک (قالب Happ) را به‌عنوان نمایه مسیریابی خود این گروه ذخیره می‌کند. تنظیمات DNS اشتراک هرگز استفاده نمی‌شود.</translation>
+    </message>
+</context>
+<context>
+    <name>DialogEditGroupAdvanced</name>
+    <message>
+        <source>Filter</source>
+        <translation>فیلتر</translation>
+    </message>
+    <message>
+        <source>Keeps only the profiles whose name matches this regular expression, case-insensitively, each time the subscription is fetched. Empty keeps every profile.</source>
+        <translation>هر بار که اشتراک دریافت می‌شود، فقط نمایه‌هایی را نگه می‌دارد که نامشان با این عبارت باقاعده منطبق باشد (بدون حساسیت به بزرگی و کوچکی حروف). خالی بودن یعنی همهٔ نمایه‌ها نگه داشته شوند.</translation>
+    </message>
+    <message>
+        <source>Keep only matching</source>
+        <translation>فقط نگه داشتن موارد منطبق</translation>
+    </message>
+    <message>
+        <source>e.g. HK|Hong Kong</source>
+        <translation>مثلاً HK|Hong Kong</translation>
+    </message>
+    <message>
+        <source>Removes the profiles whose name matches this regular expression, case-insensitively, each time the subscription is fetched. It wins over Keep only matching.</source>
+        <translation>هر بار که اشتراک دریافت می‌شود، نمایه‌هایی را که نامشان با این عبارت باقاعده منطبق باشد حذف می‌کند (بدون حساسیت به بزرگی و کوچکی حروف). بر «فقط نگه داشتن موارد منطبق» اولویت دارد.</translation>
+    </message>
+    <message>
+        <source>Remove matching</source>
+        <translation>حذف موارد منطبق</translation>
+    </message>
+    <message>
+        <source>e.g. expire|traffic</source>
+        <translation>مثلاً expire|traffic</translation>
+    </message>
+    <message>
+        <source>Removes every profile of the ticked protocols each time the subscription is fetched.</source>
+        <translation>هر بار که اشتراک دریافت می‌شود، همهٔ نمایه‌های پروتکل‌های علامت‌خورده را حذف می‌کند.</translation>
+    </message>
+    <message>
+        <source>Remove types</source>
+        <translation>حذف انواع</translation>
+    </message>
+    <message>
+        <source>Exit countries by two-letter code: HK,JP keeps only those, !RU removes one. After each update, profiles whose exit country is unknown get an IP test, and the ones outside these countries are removed. Profiles whose test fails are kept. To filter by a country written in profile names, use Keep only matching.</source>
+        <translation>کشورهای خروجی با کد دوحرفی: HK,JP فقط همان‌ها را نگه می‌دارد و !RU یک کشور را حذف می‌کند. پس از هر به‌روزرسانی، نمایه‌هایی که کشور خروجی‌شان نامعلوم است آزمایش IP می‌شوند و آن‌هایی که خارج از این کشورها هستند حذف می‌شوند. نمایه‌هایی که آزمایششان ناموفق باشد نگه داشته می‌شوند. برای فیلتر بر اساس کشوری که در نام نمایه‌ها نوشته شده، از «فقط نگه داشتن موارد منطبق» استفاده کنید.</translation>
+    </message>
+    <message>
+        <source>Countries</source>
+        <translation>کشورها</translation>
+    </message>
+    <message>
+        <source>e.g. HK,JP or !RU</source>
+        <translation>مثلاً HK,JP یا !RU</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>هیچ‌کدام</translation>
+    </message>
+    <message>
+        <source>Keeps %1.</source>
+        <translation>%1 را نگه می‌دارد.</translation>
+    </message>
+    <message>
+        <source>Removes %1.</source>
+        <translation>%1 را حذف می‌کند.</translation>
+    </message>
+    <message numerus="yes">
+        <source>After each update, profiles whose exit country is unknown are IP-tested, so the next update can test up to %n profile(s). On a large group this takes a while.</source>
+        <translation>
+            <numerusform>پس از هر به‌روزرسانی، نمایه‌هایی که کشور خروجی‌شان نامعلوم است آزمایش IP می‌شوند، بنابراین به‌روزرسانی بعدی ممکن است تا %n نمایه را آزمایش کند. در یک گروه بزرگ این کار مدتی طول می‌کشد.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>After each update, profiles whose exit country is unknown are IP-tested. On a large subscription this takes a while.</source>
+        <translation>پس از هر به‌روزرسانی، نمایه‌هایی که کشور خروجی‌شان نامعلوم است آزمایش IP می‌شوند. در یک اشتراک بزرگ این کار مدتی طول می‌کشد.</translation>
+    </message>
+    <message>
+        <source>Custom (JSON)</source>
+        <translation>سفارشی (JSON)</translation>
     </message>
 </context>
 <context>
@@ -1668,6 +1789,38 @@ For more information, see the document &quot;Configuration/DNS&quot;.</source>
         <source>Every update of the subscription &quot;%1&quot; overwrites its rules. Deleting it stops the import.</source>
         <translation>هر به‌روزرسانی اشتراک «%1» قوانین آن را بازنویسی می‌کند. حذف آن، وارد کردن را متوقف می‌کند.</translation>
     </message>
+    <message>
+        <source>TLS fragmentation for WARP registration</source>
+        <translation>قطعه‌بندی TLS برای ثبت‌نام WARP</translation>
+    </message>
+    <message>
+        <source>Advanced…</source>
+        <translation>پیشرفته…</translation>
+    </message>
+    <message>
+        <source>Advanced WARP Settings</source>
+        <translation>تنظیمات پیشرفتهٔ WARP</translation>
+    </message>
+    <message>
+        <source>Registration</source>
+        <translation>ثبت‌نام</translation>
+    </message>
+    <message>
+        <source>Applies only when registration connects directly, not through a running profile.</source>
+        <translation>فقط وقتی اعمال می‌شود که ثبت‌نام مستقیم وصل شود، نه از طریق نمایهٔ در حال اجرا.</translation>
+    </message>
+    <message>
+        <source>Fragment TLS</source>
+        <translation>قطعه‌بندی TLS</translation>
+    </message>
+    <message>
+        <source>Record fragment</source>
+        <translation>قطعه‌بندی رکورد</translation>
+    </message>
+    <message>
+        <source>Fallback delay</source>
+        <translation>تأخیر جایگزین</translation>
+    </message>
 </context>
 <context>
     <name>DialogNewScan</name>
@@ -1678,6 +1831,14 @@ For more information, see the document &quot;Configuration/DNS&quot;.</source>
     <message>
         <source>Find DNS resolvers that relay the tunnel of one of your DNSTT, MasterDNS or XDNS profiles.</source>
         <translation>ریزالورهای DNS را پیدا می‌کند که تونل یکی از نمایه‌های DNSTT، MasterDNS یا XDNS شما را عبور می‌دهند.</translation>
+    </message>
+    <message>
+        <source>Find working settings</source>
+        <translation>یافتن تنظیمات کارا</translation>
+    </message>
+    <message>
+        <source>Try variants of one profile&apos;s anti-censorship settings several times each and rank them; nothing changes in the profile until you apply a result.</source>
+        <translation>گونه‌های تنظیمات ضدسانسور یک نمایه را هر کدام چند بار امتحان و رتبه‌بندی می‌کند؛ تا وقتی نتیجه‌ای را اعمال نکنید، چیزی در نمایه تغییر نمی‌کند.</translation>
     </message>
 </context>
 <context>
@@ -1785,6 +1946,356 @@ For more information, see the document &quot;Configuration/DNS&quot;.</source>
     <message>
         <source>&quot;%1&quot; now takes resolvers from the IP list &quot;%2&quot;.</source>
         <translation>«%1» اکنون ریزالورها را از فهرست IP «%2» می‌گیرد.</translation>
+    </message>
+    <message>
+        <source>QUIC opener</source>
+        <translation>بازکنندهٔ QUIC</translation>
+    </message>
+    <message>
+        <source>Sends one decoy packet before each new UDP flow, so networks that block QUIC by its first packet let the real handshake through.</source>
+        <translation>پیش از هر جریان UDP تازه یک بستهٔ فریب می‌فرستد تا شبکه‌هایی که QUIC را از روی نخستین بسته مسدود می‌کنند، دست‌دهی واقعی را عبور دهند.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; already uses these settings.</source>
+        <translation>«%1» هم‌اکنون از همین تنظیمات استفاده می‌کند.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; cannot be searched. %2.</source>
+        <translation>«%1» قابل جستجو نیست. %2.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; could not be copied.</source>
+        <translation>«%1» کپی نشد.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is open in an editor; close the profile&apos;s editor first, then apply again.</source>
+        <translation>«%1» در ویرایشگر باز است؛ ابتدا ویرایشگر نمایه را ببندید و دوباره اعمال کنید.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; now uses: %2.</source>
+        <translation>«%1» اکنون از این‌ها استفاده می‌کند: %2.</translation>
+    </message>
+    <message>
+        <source>%1 (tuned)</source>
+        <translation>%1 (تنظیم‌شده)</translation>
+    </message>
+    <message>
+        <source>%1 ms</source>
+        <translation>%1 میلی‌ثانیه</translation>
+    </message>
+    <message>
+        <source>%1/%2</source>
+        <translation>%1/%2</translation>
+    </message>
+    <message>
+        <source>A censor that resets only some handshakes needs several tries to tell a working variant from a lucky one.</source>
+        <translation>سانسوری که فقط برخی از دست‌دهی‌ها را قطع می‌کند، چند تلاش لازم دارد تا گونهٔ کارا از گونهٔ خوش‌شانس تشخیص داده شود.</translation>
+    </message>
+    <message>
+        <source>Adds a copy of the profile with the selected variant to its group; the profile itself stays as it is.</source>
+        <translation>یک کپی از نمایه با گونهٔ انتخاب‌شده به گروهش اضافه می‌کند؛ خود نمایه همان‌طور که هست می‌ماند.</translation>
+    </message>
+    <message>
+        <source>Apply to profile</source>
+        <translation>اعمال روی نمایه</translation>
+    </message>
+    <message>
+        <source>At most this many attempts start in any minute.</source>
+        <translation>در هر دقیقه حداکثر همین تعداد تلاش آغاز می‌شود.</translation>
+    </message>
+    <message>
+        <source>Attempt limit</source>
+        <translation>سقف تلاش‌ها</translation>
+    </message>
+    <message>
+        <source>Attempts per minute</source>
+        <translation>تلاش در دقیقه</translation>
+    </message>
+    <message>
+        <source>Attempts per variant</source>
+        <translation>تلاش برای هر گونه</translation>
+    </message>
+    <message>
+        <source>Best: %1 (passed %2/%3, median %4)</source>
+        <translation>بهترین: %1 (موفق %2/%3، میانه %4)</translation>
+    </message>
+    <message>
+        <source>Choose the profile whose settings to search.</source>
+        <translation>نمایه‌ای را که تنظیماتش جستجو شود انتخاب کنید.</translation>
+    </message>
+    <message>
+        <source>Comma-separated durations such as 100ms, 500ms, 1s, tried on the best variant that fragments. Only the built-in fragment implementation uses them.</source>
+        <translation>مدت‌زمان‌هایی جداشده با کاما مانند 100ms, 500ms, 1s که روی بهترین گونهٔ دارای قطعه‌بندی امتحان می‌شوند. فقط پیاده‌سازی داخلی قطعه‌بندی از آن‌ها استفاده می‌کند.</translation>
+    </message>
+    <message>
+        <source>Comma-separated uTLS fingerprints; &quot;off&quot; tries Go&apos;s own TLS.</source>
+        <translation>اثرانگشت‌های uTLS جداشده با کاما؛ «off» خود TLS زبان Go را امتحان می‌کند.</translation>
+    </message>
+    <message>
+        <source>Confirmed</source>
+        <translation>تأییدشده</translation>
+    </message>
+    <message numerus="yes">
+        <source>Copied %n variant(s)</source>
+        <translation>
+            <numerusform>%n گونه کپی شد</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Copies the table as tab-separated text.</source>
+        <translation>جدول را به‌صورت متن جداشده با Tab کپی می‌کند.</translation>
+    </message>
+    <message>
+        <source>Download URL</source>
+        <translation>نشانی دانلود</translation>
+    </message>
+    <message>
+        <source>Download size (bytes)</source>
+        <translation>حجم دانلود (بایت)</translation>
+    </message>
+    <message>
+        <source>Downloaded through the tunnel to check each MTU. Empty: Cloudflare&apos;s speed test.</source>
+        <translation>برای بررسی هر MTU از طریق تونل دانلود می‌شود. خالی: تست سرعت Cloudflare.</translation>
+    </message>
+    <message>
+        <source>Dropped early</source>
+        <translation>زودتر کنار گذاشته شد</translation>
+    </message>
+    <message>
+        <source>Each setting is first tried on its own, a switch flipped or a list value by value; the changes that help are then combined.</source>
+        <translation>هر تنظیم ابتدا به‌تنهایی امتحان می‌شود، یک کلید برعکس یا یک فهرست مقدار به مقدار؛ سپس تغییرهای مؤثر با هم ترکیب می‌شوند.</translation>
+    </message>
+    <message>
+        <source>Every attempt requests this URL through the profile. While the MTU is searched, attempts download from the MTU download URL instead.</source>
+        <translation>هر تلاش این نشانی را از طریق نمایه درخواست می‌کند. هنگام جستجوی MTU، تلاش‌ها به‌جای آن از نشانی دانلود MTU دانلود می‌کنند.</translation>
+    </message>
+    <message>
+        <source>Fallback delays to try</source>
+        <translation>تأخیرهای جایگزین برای امتحان</translation>
+    </message>
+    <message>
+        <source>Find working settings</source>
+        <translation>یافتن تنظیمات کارا</translation>
+    </message>
+    <message>
+        <source>Finds the largest MTU that still carries a bulk download through the tunnel.</source>
+        <translation>بزرگ‌ترین MTU را پیدا می‌کند که هنوز یک دانلود حجیم را از تونل عبور می‌دهد.</translation>
+    </message>
+    <message>
+        <source>Fingerprints to try</source>
+        <translation>اثرانگشت‌ها برای امتحان</translation>
+    </message>
+    <message>
+        <source>How many bytes each MTU check downloads.</source>
+        <translation>تعداد بایتی که هر بررسی MTU دانلود می‌کند.</translation>
+    </message>
+    <message>
+        <source>Largest MTU</source>
+        <translation>بیشترین MTU</translation>
+    </message>
+    <message>
+        <source>Largest working MTU</source>
+        <translation>بزرگ‌ترین MTU کارا</translation>
+    </message>
+    <message>
+        <source>MTU (WireGuard)</source>
+        <translation>MTU (WireGuard)</translation>
+    </message>
+    <message>
+        <source>MTU probe</source>
+        <translation>کاوش MTU</translation>
+    </message>
+    <message>
+        <source>MTU step</source>
+        <translation>گام MTU</translation>
+    </message>
+    <message>
+        <source>MTU: the download size must be between %1 and %2 bytes.</source>
+        <translation>MTU: حجم دانلود باید بین %1 و %2 بایت باشد.</translation>
+    </message>
+    <message>
+        <source>MTU: the largest MTU must be between %1 and %2; leave it empty for the profile&apos;s own.</source>
+        <translation>MTU: بیشترین MTU باید بین %1 و %2 باشد؛ برای مقدار خود نمایه آن را خالی بگذارید.</translation>
+    </message>
+    <message>
+        <source>MTU: the smallest MTU must be between %1 and %2.</source>
+        <translation>MTU: کمترین MTU باید بین %1 و %2 باشد.</translation>
+    </message>
+    <message>
+        <source>MTU: the step must be between %1 and %2.</source>
+        <translation>MTU: گام باید بین %1 و %2 باشد.</translation>
+    </message>
+    <message>
+        <source>Median latency</source>
+        <translation>میانهٔ تأخیر</translation>
+    </message>
+    <message>
+        <source>Needs SNI turned on with a domain name, and no REALITY.</source>
+        <translation>به SNI روشن با نام دامنه و بدون REALITY نیاز دارد.</translation>
+    </message>
+    <message>
+        <source>Needs a profile that opens UDP flows to its server: QUIC, MASQUE over HTTP/3 or WireGuard.</source>
+        <translation>به نمایه‌ای نیاز دارد که جریان‌های UDP به سرورش باز کند: QUIC، MASQUE روی HTTP/3 یا WireGuard.</translation>
+    </message>
+    <message>
+        <source>No variant has passed yet.</source>
+        <translation>هنوز هیچ گونه‌ای موفق نشده است.</translation>
+    </message>
+    <message>
+        <source>No variant passed.</source>
+        <translation>هیچ گونه‌ای موفق نشد.</translation>
+    </message>
+    <message>
+        <source>Not usable</source>
+        <translation>قابل استفاده نیست</translation>
+    </message>
+    <message>
+        <source>Not usable: %1</source>
+        <translation>قابل استفاده نیست: %1</translation>
+    </message>
+    <message>
+        <source>Note</source>
+        <translation>یادداشت</translation>
+    </message>
+    <message>
+        <source>Only WireGuard and AmneziaWG profiles have an MTU to search.</source>
+        <translation>فقط نمایه‌های WireGuard و AmneziaWG دارای MTU قابل جستجو هستند.</translation>
+    </message>
+    <message>
+        <source>Only the built-in fragment implementation uses a fallback delay.</source>
+        <translation>فقط پیاده‌سازی داخلی قطعه‌بندی از تأخیر جایگزین استفاده می‌کند.</translation>
+    </message>
+    <message>
+        <source>Pacing</source>
+        <translation>زمان‌بندی</translation>
+    </message>
+    <message>
+        <source>Pacing: attempts per minute must be between %1 and %2.</source>
+        <translation>زمان‌بندی: تلاش در دقیقه باید بین %1 و %2 باشد.</translation>
+    </message>
+    <message>
+        <source>Pacing: attempts per variant must be between %1 and %2.</source>
+        <translation>زمان‌بندی: تلاش برای هر گونه باید بین %1 و %2 باشد.</translation>
+    </message>
+    <message>
+        <source>Pacing: the attempt limit must be between %1 and %2.</source>
+        <translation>زمان‌بندی: سقف تلاش‌ها باید بین %1 و %2 باشد.</translation>
+    </message>
+    <message>
+        <source>Pacing: the time limit must be between %1 and %2 minutes.</source>
+        <translation>زمان‌بندی: سقف زمانی باید بین %1 و %2 دقیقه باشد.</translation>
+    </message>
+    <message>
+        <source>Pacing: the timeout must be between %1 and %2 ms.</source>
+        <translation>زمان‌بندی: مهلت باید بین %1 و %2 میلی‌ثانیه باشد.</translation>
+    </message>
+    <message>
+        <source>Passed</source>
+        <translation>موفق</translation>
+    </message>
+    <message>
+        <source>Profile as it is</source>
+        <translation>نمایه همان‌طور که هست</translation>
+    </message>
+    <message>
+        <source>Recommended</source>
+        <translation>پیشنهادی</translation>
+    </message>
+    <message>
+        <source>Save as new profile</source>
+        <translation>ذخیره به‌عنوان نمایهٔ جدید</translation>
+    </message>
+    <message>
+        <source>Saved &quot;%1&quot; with: %2.</source>
+        <translation>«%1» با این‌ها ذخیره شد: %2.</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>تنظیمات</translation>
+    </message>
+    <message>
+        <source>Smallest MTU</source>
+        <translation>کمترین MTU</translation>
+    </message>
+    <message>
+        <source>TLS fragment</source>
+        <translation>قطعه‌بندی TLS</translation>
+    </message>
+    <message>
+        <source>TLS record fragment</source>
+        <translation>قطعه‌بندی رکورد TLS</translation>
+    </message>
+    <message>
+        <source>Tested through %1</source>
+        <translation>از طریق %1 آزمایش شد</translation>
+    </message>
+    <message>
+        <source>Tests through %1</source>
+        <translation>از طریق %1 آزمایش می‌کند</translation>
+    </message>
+    <message>
+        <source>The largest MTU must be above the smallest; leave it empty for the profile&apos;s own.</source>
+        <translation>بیشترین MTU باید از کمترین بزرگ‌تر باشد؛ برای مقدار خود نمایه آن را خالی بگذارید.</translation>
+    </message>
+    <message>
+        <source>The profile has no server address to test.</source>
+        <translation>نمایه نشانی سروری برای آزمایش ندارد.</translation>
+    </message>
+    <message>
+        <source>The profile of this search no longer exists.</source>
+        <translation>نمایهٔ این جستجو دیگر وجود ندارد.</translation>
+    </message>
+    <message>
+        <source>The profile this search was made for no longer exists.</source>
+        <translation>نمایه‌ای که این جستجو برای آن ساخته شده بود دیگر وجود ندارد.</translation>
+    </message>
+    <message>
+        <source>The profile&apos;s own</source>
+        <translation>مقدار خود نمایه</translation>
+    </message>
+    <message>
+        <source>The search stops after this many attempts in all.</source>
+        <translation>جستجو پس از این تعداد تلاش در مجموع متوقف می‌شود.</translation>
+    </message>
+    <message>
+        <source>The search stops after this many minutes.</source>
+        <translation>جستجو پس از این تعداد دقیقه متوقف می‌شود.</translation>
+    </message>
+    <message>
+        <source>The settings could not be applied to &quot;%1&quot;: %2.</source>
+        <translation>تنظیمات روی «%1» اعمال نشد: %2.</translation>
+    </message>
+    <message>
+        <source>The settings could not be applied to the copy: %1.</source>
+        <translation>تنظیمات روی کپی اعمال نشد: %1.</translation>
+    </message>
+    <message>
+        <source>These results are for another profile; start the search to test the one chosen now.</source>
+        <translation>این نتایج مربوط به نمایهٔ دیگری است؛ برای آزمایش نمایهٔ انتخاب‌شدهٔ فعلی، جستجو را شروع کنید.</translation>
+    </message>
+    <message>
+        <source>This profile does not use TLS over TCP.</source>
+        <translation>این نمایه از TLS روی TCP استفاده نمی‌کند.</translation>
+    </message>
+    <message>
+        <source>This type of profile has no uTLS fingerprint.</source>
+        <translation>این نوع نمایه اثرانگشت uTLS ندارد.</translation>
+    </message>
+    <message>
+        <source>Time limit (minutes)</source>
+        <translation>سقف زمانی (دقیقه)</translation>
+    </message>
+    <message>
+        <source>Variants of this profile&apos;s anti-censorship settings are tested through the core, one attempt at a time. The profile itself changes only when you apply a result.</source>
+        <translation>گونه‌های تنظیمات ضدسانسور این نمایه از طریق هسته، هر بار یک تلاش، آزمایش می‌شوند. خود نمایه فقط وقتی تغییر می‌کند که نتیجه‌ای را اعمال کنید.</translation>
+    </message>
+    <message>
+        <source>What to try</source>
+        <translation>چه چیزهایی امتحان شود</translation>
+    </message>
+    <message>
+        <source>Writes the selected variant into the profile&apos;s own settings; global defaults stay as they are.</source>
+        <translation>گونهٔ انتخاب‌شده را در تنظیمات خود نمایه می‌نویسد؛ پیش‌فرض‌های سراسری همان‌طور می‌مانند.</translation>
     </message>
 </context>
 <context>
@@ -1924,6 +2435,14 @@ For more information, see the document &quot;Configuration/DNS&quot;.</source>
         <source>Certificate sha256</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>QUIC Opener</source>
+        <translation>بازکنندهٔ QUIC</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sends one decoy packet before each new UDP flow, so networks that block QUIC by its first packet let the real handshake through. It helps HTTP/3 carriers (MASQUE, Hysteria2, TUIC). It does nothing when the profile dials through another profile.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;پیش از هر جریان UDP تازه یک بستهٔ فریب می‌فرستد تا شبکه‌هایی که QUIC را از روی نخستین بسته مسدود می‌کنند، دست‌دهی واقعی را عبور دهند. برای حامل‌های HTTP/3 (MASQUE، Hysteria2، TUIC) مفید است. وقتی نمایه از طریق نمایهٔ دیگری متصل می‌شود، اثری ندارد.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
 </context>
 <context>
     <name>EditAnyTLS</name>
@@ -1957,6 +2476,122 @@ For more information, see the document &quot;Configuration/DNS&quot;.</source>
     <message>
         <source>Name cannot be empty.</source>
         <translation>نام نمیتواند خالی باشد</translation>
+    </message>
+    <message>
+        <source>Tests each hop on its own and through every hop above it, without saving the chain</source>
+        <translation>هر هاپ را به‌تنهایی و از طریق همهٔ هاپ‌های بالای آن آزمایش می‌کند، بدون ذخیرهٔ زنجیره</translation>
+    </message>
+    <message>
+        <source>Test Hops</source>
+        <translation>آزمایش هاپ‌ها</translation>
+    </message>
+    <message>
+        <source>A chain can hold only one auto selector.</source>
+        <translation>یک زنجیره فقط می‌تواند یک انتخابگر خودکار داشته باشد.</translation>
+    </message>
+    <message>
+        <source>An auto selector cannot share a chain with an Extra Core profile or a custom config.</source>
+        <translation>انتخابگر خودکار نمی‌تواند با نمایهٔ هسته اضافی یا پیکربندی سفارشی در یک زنجیره باشد.</translation>
+    </message>
+    <message>
+        <source>Connect OK</source>
+        <translation>اتصال موفق</translation>
+    </message>
+    <message>
+        <source>%1 ms</source>
+        <translation>%1 ms</translation>
+    </message>
+    <message>
+        <source>On its own: %1</source>
+        <translation>به‌تنهایی: %1</translation>
+    </message>
+    <message>
+        <source>On its own: unavailable</source>
+        <translation>به‌تنهایی: غیرقابل دسترسی</translation>
+    </message>
+    <message>
+        <source>Invalid</source>
+        <translation>نامعتبر</translation>
+    </message>
+    <message>
+        <source>This profile is not valid; the log has the details.</source>
+        <translation>این نمایه معتبر نیست؛ جزئیات در گزارش آمده است.</translation>
+    </message>
+    <message>
+        <source>Works.</source>
+        <translation>کار می‌کند.</translation>
+    </message>
+    <message>
+        <source>Works through every hop above it.</source>
+        <translation>از طریق همهٔ هاپ‌های بالای خود کار می‌کند.</translation>
+    </message>
+    <message>
+        <source>Not reached</source>
+        <translation>نرسید</translation>
+    </message>
+    <message>
+        <source>A hop above already fails, so this says nothing about this hop.</source>
+        <translation>یک هاپ بالاتر از قبل کار نمی‌کند، پس این نتیجه چیزی دربارهٔ این هاپ نمی‌گوید.</translation>
+    </message>
+    <message>
+        <source>Fails through the hops above</source>
+        <translation>از طریق هاپ‌های بالا کار نمی‌کند</translation>
+    </message>
+    <message>
+        <source>Works on its own (%1), but not through the hops above it: the hop above may not reach this server, or may not carry its protocol (UDP, for example).</source>
+        <translation>به‌تنهایی کار می‌کند (%1)، اما نه از طریق هاپ‌های بالای خود: ممکن است هاپ بالایی به این سرور نرسد یا پروتکل آن (مثلاً UDP) را عبور ندهد.</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>غیرقابل دسترسی</translation>
+    </message>
+    <message>
+        <source>Tested on its own only: a hop above is not valid.</source>
+        <translation>فقط به‌تنهایی آزمایش شد: یکی از هاپ‌های بالا معتبر نیست.</translation>
+    </message>
+    <message>
+        <source>Not tested</source>
+        <translation>آزمایش نشده</translation>
+    </message>
+    <message>
+        <source>The test was stopped.</source>
+        <translation>آزمایش متوقف شد.</translation>
+    </message>
+    <message>
+        <source>The chain breaks at hop %1, %2.</source>
+        <translation>زنجیره در هاپ %1، %2 قطع می‌شود.</translation>
+    </message>
+    <message>
+        <source>Every hop works, and so does the group&apos;s landing proxy after them (%1).</source>
+        <translation>همهٔ هاپ‌ها کار می‌کنند و پروکسی خروجی گروه پس از آن‌ها هم کار می‌کند (%1).</translation>
+    </message>
+    <message>
+        <source>Every hop works, but the group&apos;s landing proxy fails through them.</source>
+        <translation>همهٔ هاپ‌ها کار می‌کنند، اما پروکسی خروجی گروه از طریق آن‌ها کار نمی‌کند.</translation>
+    </message>
+    <message>
+        <source>Every hop works, but the group&apos;s landing proxy is unavailable.</source>
+        <translation>همهٔ هاپ‌ها کار می‌کنند، اما پروکسی خروجی گروه در دسترس نیست.</translation>
+    </message>
+    <message>
+        <source>Every hop works through the ones above it.</source>
+        <translation>هر هاپ از طریق هاپ‌های بالای خود کار می‌کند.</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>در حال آزمایش…</translation>
+    </message>
+    <message>
+        <source>Testing each hop on its own and through the hops above it…</source>
+        <translation>در حال آزمایش هر هاپ به‌تنهایی و از طریق هاپ‌های بالای آن…</translation>
+    </message>
+    <message>
+        <source>The hops changed during the test; test again.</source>
+        <translation>هاپ‌ها در حین آزمایش تغییر کردند؛ دوباره آزمایش کنید.</translation>
+    </message>
+    <message>
+        <source>Another test is running; try again when it finishes.</source>
+        <translation>آزمایش دیگری در حال اجراست؛ پس از پایان آن دوباره تلاش کنید.</translation>
     </message>
 </context>
 <context>
@@ -3592,6 +4227,62 @@ Error: %1</source>
         <source>The group &quot;%1&quot; uses its own routing profile, so the running profile keeps it.</source>
         <translation>گروه «%1» از نمایه مسیریابی خودش استفاده می‌کند، بنابراین نمایه در حال اجرا همان را نگه می‌دارد.</translation>
     </message>
+    <message>
+        <source>[Auto selector] Every running profile stopped working through the hops in front of it — rebuilding with the next candidates.</source>
+        <translation>[انتخابگر خودکار] همهٔ نمایه‌های در حال اجرا از طریق هاپ‌های جلوی آن از کار افتادند — ساخت دوباره با نامزدهای بعدی.</translation>
+    </message>
+    <message>
+        <source>The core did not answer the test</source>
+        <translation>هسته به آزمایش پاسخ نداد</translation>
+    </message>
+    <message>
+        <source>Tun Mode and the kill switch need the core to run with administrator rights.
+
+Grant them once with a Windows confirmation; Throne itself keeps running as a standard user.</source>
+        <translation>حالت Tun و کیل سوییچ نیاز دارند که هسته با دسترسی مدیر اجرا شود.
+
+یک بار با تأیید ویندوز این دسترسی را بدهید؛ خود Throne همچنان به‌عنوان کاربر عادی اجرا می‌شود.</translation>
+    </message>
+    <message>
+        <source>The update was cancelled, Throne keeps running</source>
+        <translation>به‌روزرسانی لغو شد، Throne به کار خود ادامه می‌دهد</translation>
+    </message>
+    <message>
+        <source>Service Check</source>
+        <translation>بررسی سرویس‌ها</translation>
+    </message>
+    <message>
+        <source>Service Check Group</source>
+        <translation>بررسی سرویس‌های گروه</translation>
+    </message>
+    <message>
+        <source>Services</source>
+        <translation>سرویس‌ها</translation>
+    </message>
+    <message>
+        <source>A service check can test up to 100 profiles at a time. Select fewer profiles.</source>
+        <translation>بررسی سرویس‌ها هر بار حداکثر 100 نمایه را بررسی می‌کند. نمایه‌های کمتری انتخاب کنید.</translation>
+    </message>
+    <message>
+        <source>This checks %1 profiles. Each one sends about 20 requests to the checked services. Continue?</source>
+        <translation>%1 نمایه بررسی می‌شود. هر نمایه حدود 20 درخواست به سرویس‌های بررسی‌شده می‌فرستد. ادامه می‌دهید؟</translation>
+    </message>
+    <message>
+        <source>Service check finished!</source>
+        <translation>بررسی سرویس‌ها به پایان رسید!</translation>
+    </message>
+    <message>
+        <source>[%1] service check error: %2</source>
+        <translation>[%1] خطای بررسی سرویس‌ها: %2</translation>
+    </message>
+    <message>
+        <source>Service check failed: %1</source>
+        <translation>بررسی سرویس‌ها ناموفق بود: %1</translation>
+    </message>
+    <message>
+        <source>Find working settings…</source>
+        <translation>یافتن تنظیمات کارا…</translation>
+    </message>
 </context>
 <context>
     <name>ProfilesTableModel</name>
@@ -3701,6 +4392,76 @@ Error: %1</source>
     <message>
         <source>Weak Cipher</source>
         <translation>رمز ضعیف</translation>
+    </message>
+    <message>
+        <source>The routing profile sends traffic to %1, which holds an auto selector; such a chain can only be started, not used in routing rules</source>
+        <translation>نمایهٔ مسیریابی ترافیک را به %1 می‌فرستد که یک انتخابگر خودکار دارد؛ چنین زنجیره‌ای فقط قابل اجراست و نمی‌توان آن را در قوانین مسیریابی به کار برد</translation>
+    </message>
+    <message numerus="yes">
+        <source>[Auto selector] Left out %n profile(s) that cannot be reached through the hops in front of the selector (custom Xray configs, or too many switches between %1 and Xray).</source>
+        <translation>
+            <numerusform>[انتخابگر خودکار] %n نمایه که از طریق هاپ‌های جلوی انتخابگر قابل دسترسی نیستند کنار گذاشته شد (پیکربندی‌های سفارشی Xray، یا جابه‌جایی بیش از حد بین %1 و Xray).</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>A chain can hold only one auto selector</source>
+        <translation>یک زنجیره فقط می‌تواند یک انتخابگر خودکار داشته باشد</translation>
+    </message>
+    <message>
+        <source>Extra Core profiles and custom configs cannot share a chain with an auto selector</source>
+        <translation>نمایه‌های هسته اضافی و پیکربندی‌های سفارشی نمی‌توانند با انتخابگر خودکار در یک زنجیره باشند</translation>
+    </message>
+    <message>
+        <source>Chains with an auto selector cannot be scanned</source>
+        <translation>زنجیره‌های دارای انتخابگر خودکار قابل اسکن نیستند</translation>
+    </message>
+    <message>
+        <source>The group&apos;s front or landing proxy no longer exists</source>
+        <translation>پروکسی جلویی یا خروجی گروه دیگر وجود ندارد</translation>
+    </message>
+    <message>
+        <source>Chains with an auto selector cannot be tested hop by hop; test its members instead</source>
+        <translation>زنجیره‌های دارای انتخابگر خودکار را نمی‌توان هاپ به هاپ آزمایش کرد؛ به‌جای آن اعضای آن را آزمایش کنید</translation>
+    </message>
+    <message>
+        <source>The group&apos;s front or landing proxy is not valid; the log has the details</source>
+        <translation>پروکسی جلویی یا خروجی گروه معتبر نیست؛ جزئیات در گزارش آمده است</translation>
+    </message>
+    <message>
+        <source>Auto selector paused — no network connection, or the chain hops in front of it are down (%1 profiles held)</source>
+        <translation>انتخابگر خودکار متوقف شد — اتصال شبکه وجود ندارد، یا هاپ‌های زنجیره در جلوی آن از کار افتاده‌اند (%1 نمایه نگه داشته شد)</translation>
+    </message>
+    <message>
+        <source>Filters of %1: %2</source>
+        <translation>فیلترهای %1: %2</translation>
+    </message>
+    <message>
+        <source>The filters of %1 remove all %2 profiles of the subscription, so the group was left unchanged.</source>
+        <translation>فیلترهای %1 همهٔ %2 نمایهٔ اشتراک را حذف می‌کنند، بنابراین گروه بدون تغییر ماند.</translation>
+    </message>
+    <message>
+        <source>Filtered out %1 profiles.</source>
+        <translation>%1 نمایه فیلتر شد.</translation>
+    </message>
+    <message>
+        <source>The country rules accept none of the %1 tested profiles, so none were removed.</source>
+        <translation>قوانین کشور هیچ‌یک از %1 نمایهٔ آزمایش‌شده را نمی‌پذیرند، بنابراین هیچ نمایه‌ای حذف نشد.</translation>
+    </message>
+    <message>
+        <source>Removed %1 profiles outside the country rules:</source>
+        <translation>%1 نمایهٔ خارج از قوانین کشور حذف شد:</translation>
+    </message>
+    <message>
+        <source>Testing the exit country of %1 profiles of %2 for its country rules. On a large group this takes a while.</source>
+        <translation>در حال آزمایش کشور خروجی %1 نمایه از %2 برای قوانین کشور آن. در یک گروه بزرگ این کار مدتی طول می‌کشد.</translation>
+    </message>
+    <message>
+        <source>%1 profiles without a test result were kept; the next update tests them again.</source>
+        <translation>%1 نمایهٔ بدون نتیجهٔ آزمایش نگه داشته شد؛ به‌روزرسانی بعدی دوباره آن‌ها را آزمایش می‌کند.</translation>
+    </message>
+    <message>
+        <source>After the country test of %1:</source>
+        <translation>پس از آزمایش کشور %1:</translation>
     </message>
 </context>
 <context>
@@ -3935,6 +4696,46 @@ Error: %1</source>
         <source>Failed to store the scan.</source>
         <translation>ذخیرهٔ اسکن ناموفق بود.</translation>
     </message>
+    <message>
+        <source>&quot;%1&quot; cannot be searched. %2.</source>
+        <translation>«%1» قابل جستجو نیست. %2.</translation>
+    </message>
+    <message>
+        <source>%1 / %2 attempts (%3%)</source>
+        <translation>%1 / %2 تلاش (%3%)</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n working variant(s)</source>
+        <translation>
+            <numerusform>%n گونهٔ کارا</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Find working settings</source>
+        <translation>یافتن تنظیمات کارا</translation>
+    </message>
+    <message>
+        <source>Only a saved profile can be searched; save the profile first.</source>
+        <translation>فقط نمایهٔ ذخیره‌شده قابل جستجو است؛ ابتدا نمایه را ذخیره کنید.</translation>
+    </message>
+    <message>
+        <source>Settings for %1</source>
+        <translation>تنظیمات برای %1</translation>
+    </message>
+    <message numerus="yes">
+        <source>Start over and discard the %n tested variant(s)?</source>
+        <translation>
+            <numerusform>از نو شروع شود و %n گونهٔ آزمایش‌شده کنار گذاشته شود؟</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>The profile or the search options changed since this search was paused, so it cannot resume. Start over?</source>
+        <translation>از زمان توقف این جستجو، نمایه یا گزینه‌های جستجو تغییر کرده‌اند، پس نمی‌توان آن را ادامه داد. از نو شروع شود؟</translation>
+    </message>
+    <message>
+        <source>Working settings</source>
+        <translation>تنظیمات کارا</translation>
+    </message>
 </context>
 <context>
     <name>Scanner::ScanManager</name>
@@ -3945,6 +4746,118 @@ Error: %1</source>
     <message>
         <source>The DNS tunnel profile cannot be used to find resolvers</source>
         <translation>از نمایهٔ تونل DNS نمی‌توان برای یافتن ریزالور استفاده کرد</translation>
+    </message>
+    <message>
+        <source>A settings search has no results to rescan</source>
+        <translation>جستجوی تنظیمات نتیجه‌ای برای اسکن دوباره ندارد</translation>
+    </message>
+    <message>
+        <source>Choose the profile to find working settings for</source>
+        <translation>نمایه‌ای را که برایش تنظیمات کارا پیدا شود انتخاب کنید</translation>
+    </message>
+    <message>
+        <source>Nothing to try: turn on a setting this profile supports</source>
+        <translation>چیزی برای امتحان نیست: تنظیمی را که این نمایه پشتیبانی می‌کند روشن کنید</translation>
+    </message>
+    <message>
+        <source>The profile has no server address to test</source>
+        <translation>نمایه نشانی سروری برای آزمایش ندارد</translation>
+    </message>
+    <message>
+        <source>Every variant connects to %1</source>
+        <translation>همهٔ گونه‌ها به %1 وصل می‌شوند</translation>
+    </message>
+    <message numerus="yes">
+        <source>Stopped at the time limit of %n minute(s)</source>
+        <translation>
+            <numerusform>در سقف زمانی %n دقیقه متوقف شد</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Stopped at the limit of %n attempt(s)</source>
+        <translation>
+            <numerusform>در سقف %n تلاش متوقف شد</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1: cannot be used: %2</source>
+        <translation>%1: قابل استفاده نیست: %2</translation>
+    </message>
+    <message>
+        <source>%1: passed in %2 ms (%3/%4)</source>
+        <translation>%1: در %2 میلی‌ثانیه موفق شد (%3/%4)</translation>
+    </message>
+    <message>
+        <source>The network is down, so the search paused; resume it when the connection is back</source>
+        <translation>شبکه قطع است، پس جستجو متوقف شد؛ وقتی اتصال برگشت آن را ادامه دهید</translation>
+    </message>
+    <message>
+        <source>%1: failed (%2/%3): %4</source>
+        <translation>%1: ناموفق (%2/%3): %4</translation>
+    </message>
+    <message>
+        <source>The profile could not be copied</source>
+        <translation>نمایه کپی نشد</translation>
+    </message>
+    <message>
+        <source>This profile cannot be pointed at %1</source>
+        <translation>این نمایه را نمی‌توان به %1 هدایت کرد</translation>
+    </message>
+    <message>
+        <source>The core returned no result</source>
+        <translation>هسته نتیجه‌ای برنگرداند</translation>
+    </message>
+    <message>
+        <source>The core did not answer the network check, so the search paused</source>
+        <translation>هسته به بررسی شبکه پاسخ نداد، پس جستجو متوقف شد</translation>
+    </message>
+    <message>
+        <source>Confirming the best variants</source>
+        <translation>در حال تأیید بهترین گونه‌ها</translation>
+    </message>
+    <message>
+        <source>Testing the profile as it is</source>
+        <translation>در حال آزمایش نمایه همان‌طور که هست</translation>
+    </message>
+    <message>
+        <source>Trying one change at a time</source>
+        <translation>در حال امتحان تغییرها یکی‌یکی</translation>
+    </message>
+    <message>
+        <source>Combining what helped</source>
+        <translation>در حال ترکیب تغییرهای مؤثر</translation>
+    </message>
+    <message>
+        <source>Trying fragment delays</source>
+        <translation>در حال امتحان تأخیرهای قطعه‌بندی</translation>
+    </message>
+    <message>
+        <source>Searching for the largest working MTU</source>
+        <translation>در حال یافتن بزرگ‌ترین MTU کارا</translation>
+    </message>
+    <message>
+        <source>Preparing</source>
+        <translation>در حال آماده‌سازی</translation>
+    </message>
+    <message>
+        <source>Checking network</source>
+        <translation>در حال بررسی شبکه</translation>
+    </message>
+    <message>
+        <source>The scan stopped on an unexpected error</source>
+        <translation>اسکن با یک خطای غیرمنتظره متوقف شد</translation>
+    </message>
+    <message>
+        <source>Scan %1: saving its final state failed</source>
+        <translation>اسکن %1: ذخیرهٔ وضعیت نهایی آن ناموفق بود</translation>
+    </message>
+    <message>
+        <source>Scan %1 stopped: %2</source>
+        <translation>اسکن %1 متوقف شد: %2</translation>
+    </message>
+    <message>
+        <source>The core did not answer the config test</source>
+        <translation>هسته به تست پیکربندی پاسخ نداد</translation>
     </message>
 </context>
 <context>
@@ -4031,6 +4944,113 @@ Error: %1</source>
     <message>
         <source>The core keeps exiting, so it is no longer restarted. Use Restart Core to try again.</source>
         <translation>هسته مدام متوقف می‌شود، بنابراین دیگر دوباره راه‌اندازی نمی‌شود. برای تلاش دوباره از «Restart Core» استفاده کنید.</translation>
+    </message>
+</context>
+<context>
+    <name>Scanner::Tune</name>
+    <message>
+        <source>The profile could not be read</source>
+        <translation>نمایه خوانده نشد</translation>
+    </message>
+    <message>
+        <source>A chain cannot be searched as a whole; run the search on the profiles of its hops</source>
+        <translation>زنجیره را نمی‌توان یک‌جا جستجو کرد؛ جستجو را روی نمایه‌های هاپ‌های آن اجرا کنید</translation>
+    </message>
+    <message>
+        <source>Xray profiles are not supported yet: the search changes sing-box settings</source>
+        <translation>نمایه‌های Xray هنوز پشتیبانی نمی‌شوند: جستجو تنظیمات sing-box را تغییر می‌دهد</translation>
+    </message>
+    <message>
+        <source>This profile has no setting the search can change: that needs TLS over TCP, QUIC or WireGuard</source>
+        <translation>این نمایه تنظیمی ندارد که جستجو بتواند تغییرش دهد: برای این کار TLS روی TCP، QUIC یا WireGuard لازم است</translation>
+    </message>
+    <message>
+        <source>The MTU applies only to WireGuard profiles</source>
+        <translation>MTU فقط برای نمایه‌های WireGuard به کار می‌رود</translation>
+    </message>
+    <message>
+        <source>The profile no longer uses TLS over TCP</source>
+        <translation>نمایه دیگر از TLS روی TCP استفاده نمی‌کند</translation>
+    </message>
+    <message>
+        <source>This type of profile has no uTLS fingerprint</source>
+        <translation>این نوع نمایه اثرانگشت uTLS ندارد</translation>
+    </message>
+    <message>
+        <source>Unknown setting “%1”</source>
+        <translation>تنظیم ناشناخته «%1»</translation>
+    </message>
+    <message>
+        <source>The profile as it is</source>
+        <translation>نمایه همان‌طور که هست</translation>
+    </message>
+    <message>
+        <source>uTLS off</source>
+        <translation>uTLS خاموش</translation>
+    </message>
+    <message>
+        <source>Fingerprint %1</source>
+        <translation>اثرانگشت %1</translation>
+    </message>
+    <message>
+        <source>TLS fragment on</source>
+        <translation>قطعه‌بندی TLS روشن</translation>
+    </message>
+    <message>
+        <source>TLS fragment off</source>
+        <translation>قطعه‌بندی TLS خاموش</translation>
+    </message>
+    <message>
+        <source>Fragment delay %1</source>
+        <translation>تأخیر قطعه‌بندی %1</translation>
+    </message>
+    <message>
+        <source>default</source>
+        <translation>پیش‌فرض</translation>
+    </message>
+    <message>
+        <source>Record fragment on</source>
+        <translation>قطعه‌بندی رکورد روشن</translation>
+    </message>
+    <message>
+        <source>Record fragment off</source>
+        <translation>قطعه‌بندی رکورد خاموش</translation>
+    </message>
+    <message>
+        <source>Mixed-case SNI on</source>
+        <translation>SNI با حروف کوچک و بزرگ درهم روشن</translation>
+    </message>
+    <message>
+        <source>Mixed-case SNI off</source>
+        <translation>SNI با حروف کوچک و بزرگ درهم خاموش</translation>
+    </message>
+    <message>
+        <source>QUIC opener on</source>
+        <translation>بازکنندهٔ QUIC روشن</translation>
+    </message>
+    <message>
+        <source>QUIC opener off</source>
+        <translation>بازکنندهٔ QUIC خاموش</translation>
+    </message>
+    <message>
+        <source>MTU %1</source>
+        <translation>MTU %1</translation>
+    </message>
+    <message>
+        <source>“%1” changes from one start to the next, so it cannot be tried</source>
+        <translation>«%1» در هر بار شروع تغییر می‌کند، پس نمی‌توان آن را امتحان کرد</translation>
+    </message>
+    <message>
+        <source>“%1” is not a uTLS fingerprint</source>
+        <translation>«%1» اثرانگشت uTLS نیست</translation>
+    </message>
+    <message>
+        <source>Fragment delay “%1”: %2</source>
+        <translation>تأخیر قطعه‌بندی «%1»: %2</translation>
+    </message>
+    <message>
+        <source>The largest MTU must be above the smallest</source>
+        <translation>بیشترین MTU باید از کمترین بزرگ‌تر باشد</translation>
     </message>
 </context>
 <context>
@@ -4298,6 +5318,38 @@ Error: %1</source>
         <source>Must be a number.</source>
         <translation>باید عدد باشد.</translation>
     </message>
+    <message>
+        <source>Routing rules cannot use the chain &quot;%1&quot;: it holds an auto selector, so it can only be started. Pick another outbound.</source>
+        <translation>قوانین مسیریابی نمی‌توانند از زنجیرهٔ «%1» استفاده کنند: این زنجیره یک انتخابگر خودکار دارد، پس فقط قابل اجراست. خروجی دیگری انتخاب کنید.</translation>
+    </message>
+    <message>
+        <source>Not a valid regular expression: %1 (at character %2).</source>
+        <translation>عبارت باقاعدهٔ معتبر نیست: %1 (در نویسهٔ %2).</translation>
+    </message>
+    <message>
+        <source>Not a two-letter country code: %1. Use codes such as HK,JP to keep only those countries, or !RU to remove one.</source>
+        <translation>کد دوحرفی کشور نیست: %1. برای نگه داشتن فقط همان کشورها از کدهایی مانند HK,JP، یا برای حذف یک کشور از !RU استفاده کنید.</translation>
+    </message>
+    <message>
+        <source>%1 is not a valid regular expression, so it was ignored: %2</source>
+        <translation>«%1» عبارت باقاعدهٔ معتبری نیست، بنابراین نادیده گرفته شد: %2</translation>
+    </message>
+    <message>
+        <source>Keep only matching</source>
+        <translation>فقط نگه داشتن موارد منطبق</translation>
+    </message>
+    <message>
+        <source>Remove matching</source>
+        <translation>حذف موارد منطبق</translation>
+    </message>
+    <message>
+        <source>Unknown protocol in Remove types, ignored: %1</source>
+        <translation>پروتکل ناشناخته در «حذف انواع» نادیده گرفته شد: %1</translation>
+    </message>
+    <message>
+        <source>Not a two-letter country code, ignored: %1</source>
+        <translation>کد دوحرفی کشور نیست، نادیده گرفته شد: %1</translation>
+    </message>
 </context>
 <context>
     <name>GuiStartup</name>
@@ -4315,6 +5367,67 @@ Error: %1</source>
     <message>
         <source>A background Throne (PID %1) owns Tun on this computer; stop it or use thronectl.</source>
         <translation>حالت Tun روی این رایانه در اختیار یک Throne پس‌زمینه (PID %1) است؛ آن را متوقف کنید یا از thronectl استفاده کنید.</translation>
+    </message>
+</context>
+<context>
+    <name>Sys::KillSwitch</name>
+    <message>
+        <source>The kill switch needs the core to run as administrator.</source>
+        <translation>کیل سوییچ نیاز دارد هسته با دسترسی مدیر اجرا شود.</translation>
+    </message>
+</context>
+<context>
+    <name>Sys::CoreElevation</name>
+    <message>
+        <source>The Windows administrator prompt was declined or could not be shown.</source>
+        <translation>درخواست دسترسی مدیر ویندوز رد شد یا نمایش داده نشد.</translation>
+    </message>
+    <message>
+        <source>Done.</source>
+        <translation>انجام شد.</translation>
+    </message>
+    <message>
+        <source>The helper did not receive administrator rights.</source>
+        <translation>برنامهٔ کمکی دسترسی مدیر دریافت نکرد.</translation>
+    </message>
+    <message>
+        <source>Windows asked for a different administrator account; the grant must come from your own account.</source>
+        <translation>ویندوز حساب مدیر دیگری را درخواست کرد؛ اعطای دسترسی باید از حساب خود شما انجام شود.</translation>
+    </message>
+    <message>
+        <source>The helper was started with invalid arguments.</source>
+        <translation>برنامهٔ کمکی با آرگومان‌های نامعتبر اجرا شد.</translation>
+    </message>
+    <message>
+        <source>Could not copy ThroneCore into its protected folder.</source>
+        <translation>کپی ThroneCore در پوشهٔ محافظت‌شده ممکن نشد.</translation>
+    </message>
+    <message>
+        <source>Could not register the scheduled task that starts ThroneCore as administrator.</source>
+        <translation>ثبت وظیفهٔ زمان‌بندی‌شده‌ای که ThroneCore را با دسترسی مدیر اجرا می‌کند ممکن نشد.</translation>
+    </message>
+    <message>
+        <source>Could not remove the scheduled task or the protected copy of ThroneCore.</source>
+        <translation>حذف وظیفهٔ زمان‌بندی‌شده یا نسخهٔ محافظت‌شدهٔ ThroneCore ممکن نشد.</translation>
+    </message>
+    <message>
+        <source>Could not prepare or start the updater.</source>
+        <translation>آماده‌سازی یا اجرای به‌روزرسان ممکن نشد.</translation>
+    </message>
+    <message>
+        <source>The helper failed with exit code 0x%1.</source>
+        <translation>برنامهٔ کمکی با کد خروج 0x%1 شکست خورد.</translation>
+    </message>
+</context>
+<context>
+    <name>RuntimeStatsWidget</name>
+    <message>
+        <source>Services</source>
+        <translation>سرویس‌ها</translation>
+    </message>
+    <message>
+        <source>Check</source>
+        <translation>بررسی</translation>
     </message>
 </context>
 </TS>

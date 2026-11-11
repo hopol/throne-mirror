@@ -180,8 +180,12 @@ set(PROJECT_SOURCES
         src/configs/sub/ImportReport.cpp
         include/configs/ParseDiagnostics.h
         src/configs/ParseDiagnostics.cpp
+        include/configs/ProcessRules.h
+        src/configs/ProcessRules.cpp
         include/configs/sub/SubscriptionReconcile.hpp
         src/configs/sub/SubscriptionReconcile.cpp
+        include/configs/sub/SubscriptionFilter.hpp
+        src/configs/sub/SubscriptionFilter.cpp
         include/configs/sub/RouteUpdater.hpp
         src/configs/sub/RouteUpdater.cpp
         src/configs/sub/clash.cpp
@@ -251,6 +255,8 @@ set(PROJECT_SOURCES
         src/ui/widget/MuxSettingsWidget.cpp
         include/ui/widget/ResolverSourceWidget.h
         src/ui/widget/ResolverSourceWidget.cpp
+        include/ui/widget/ElidingLabel.hpp
+        src/ui/widget/ElidingLabel.cpp
         include/ui/widget/json/JsonTree.h
         src/ui/widget/json/JsonTree.cpp
         include/ui/widget/json/JsonValidator.h
@@ -459,6 +465,7 @@ set(PROJECT_SOURCES
         src/ui/scanner/dialog_new_scan.cpp
         include/ui/scanner/dialog_new_scan.h
         src/ui/scanner/dialog_scan_instance.cpp
+        src/ui/scanner/dialog_scan_instance_tune.cpp
         include/ui/scanner/dialog_scan_instance.h
         include/ui/scanner/dialog_scan_instance.ui
         src/ui/scanner/IpEntriesModel.cpp
@@ -485,6 +492,12 @@ set(PROJECT_SOURCES
         src/scanner/ScanManager.cpp
         include/scanner/ScanWorker.h
         src/scanner/ScanWorker.cpp
+        include/scanner/TunePlanner.h
+        src/scanner/TunePlanner.cpp
+        include/scanner/TuneProfiles.h
+        src/scanner/TuneProfiles.cpp
+        include/scanner/TuneWorker.h
+        src/scanner/TuneWorker.cpp
 
         src/ui/stats/dialog_traffic_stats.cpp
         include/ui/stats/dialog_traffic_stats.h
@@ -517,6 +530,10 @@ set(PROJECT_SOURCES
         include/ui/setting/RawRouteItem.h
         src/ui/setting/RouteDnsEditor.cpp
         include/ui/setting/RouteDnsEditor.h
+        src/ui/setting/ProcessPicker.cpp
+        include/ui/setting/ProcessPicker.h
+        src/ui/setting/dialog_rule_tester.cpp
+        include/ui/setting/dialog_rule_tester.h
 
         res/Throne.qrc
         ${QV2RAY_RC}
@@ -774,6 +791,8 @@ set(ENGINE_SOURCES
         include/engine/tests/TestObserver.h
         include/engine/tests/TestRunner.h
         src/engine/tests/TestRunner.cpp
+        include/engine/tests/ServiceChecks.h
+        src/engine/tests/ServiceChecks.cpp
         include/engine/autoselector/AutoSelectorController.h
         src/engine/autoselector/AutoSelectorController.cpp
         include/engine/connection/ConnectionManager.h

@@ -44,6 +44,7 @@ namespace Configs {
                 sort_descending INTEGER NOT NULL DEFAULT 0,
                 route_id INTEGER NOT NULL DEFAULT -1,
                 import_sub_route INTEGER NOT NULL DEFAULT 0,
+                show_service_checks INTEGER NOT NULL DEFAULT 1,
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
                 updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             )
@@ -65,6 +66,8 @@ namespace Configs {
             db.exec("ALTER TABLE groups ADD COLUMN route_id INTEGER NOT NULL DEFAULT -1");
         if (!groupsColumnExists("import_sub_route"))
             db.exec("ALTER TABLE groups ADD COLUMN import_sub_route INTEGER NOT NULL DEFAULT 0");
+        if (!groupsColumnExists("show_service_checks"))
+            db.exec("ALTER TABLE groups ADD COLUMN show_service_checks INTEGER NOT NULL DEFAULT 1");
 
         db.exec(R"(
             CREATE TABLE IF NOT EXISTS groups_order (
@@ -72,6 +75,38 @@ namespace Configs {
                 display_order INTEGER NOT NULL
             )
         )");
+
+        db.exec(R"(
+            CREATE TABLE IF NOT EXISTS sub_country_verdicts (
+                gid INTEGER NOT NULL PRIMARY KEY,
+                verdicts_json TEXT NOT NULL DEFAULT '{}'
+            )
+        )");
+    }
+
+    QHash<QByteArray, QString> GroupsRepo::CountryVerdicts(int gid) const {
+        QHash<QByteArray, QString> verdicts;
+        const auto query = db.query("SELECT verdicts_json FROM sub_country_verdicts WHERE gid = ?", gid);
+        if (!query || !query->executeStep()) return verdicts;
+        const auto json = QJsonDocument::fromJson(QByteArray(query->getColumn(0).getText())).object();
+        for (auto it = json.constBegin(); it != json.constEnd(); ++it) {
+            const auto key = QByteArray::fromBase64(it.key().toLatin1());
+            if (const auto country = it.value().toString(); !key.isEmpty() && !country.isEmpty()) verdicts.insert(key, country);
+        }
+        return verdicts;
+    }
+
+    void GroupsRepo::SetCountryVerdicts(int gid, const QHash<QByteArray, QString>& verdicts) const {
+        if (verdicts.isEmpty()) {
+            db.exec("DELETE FROM sub_country_verdicts WHERE gid = ?", gid);
+            return;
+        }
+        QJsonObject json;
+        for (auto it = verdicts.constBegin(); it != verdicts.constEnd(); ++it) json.insert(QString::fromLatin1(it.key().toBase64()), it.value());
+        db.exec(R"(
+            INSERT INTO sub_country_verdicts (gid, verdicts_json) VALUES (?, ?)
+            ON CONFLICT(gid) DO UPDATE SET verdicts_json = excluded.verdicts_json
+        )", gid, QJsonDocument(json).toJson(QJsonDocument::Compact).toStdString());
     }
 
     bool GroupsRepo::groupsColumnExists(const char* columnName) const {
@@ -110,6 +145,7 @@ namespace Configs {
         json["sort_method"] = static_cast<int>(group->sort.method);
         json["sort_descending"] = group->sort.descending;
         json["test_items_to_show"] = static_cast<int>(group->test_items_to_show);
+        json["show_service_checks"] = group->show_service_checks;
 
         return json;
     }
@@ -145,7 +181,8 @@ namespace Configs {
             group->sort.descending = json["sort_descending"].toBool();
         }
         group->test_items_to_show = static_cast<testShowItems>(json["test_items_to_show"].toInt(0));
-        
+        group->show_service_checks = json["show_service_checks"].toBool(true);
+
         return group;
     }
 
@@ -168,8 +205,8 @@ namespace Configs {
              front_proxy_id, landing_proxy_id,
              column_width_json, profiles_json, scroll_last_profile, test_sort_by, traffic_sort_by, test_items_to_show,
              type_sort_by, sub_options_json, sub_metadata_json, endpoint_json, sort_method, sort_descending,
-             route_id, import_sub_route)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             route_id, import_sub_route, show_service_checks)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 archive = excluded.archive, skip_auto_update = excluded.skip_auto_update,
                 auto_clear_unavailable = excluded.auto_clear_unavailable, name = excluded.name,
@@ -182,6 +219,7 @@ namespace Configs {
                 sub_metadata_json = excluded.sub_metadata_json, endpoint_json = excluded.endpoint_json,
                 sort_method = excluded.sort_method, sort_descending = excluded.sort_descending,
                 route_id = excluded.route_id, import_sub_route = excluded.import_sub_route,
+                show_service_checks = excluded.show_service_checks,
                 updated_at = strftime('%s', 'now')
         )",
             id,
@@ -207,7 +245,8 @@ namespace Configs {
             static_cast<int>(group->sort.method),
             group->sort.descending ? 1 : 0,
             group->route_id,
-            group->import_sub_route ? 1 : 0
+            group->import_sub_route ? 1 : 0,
+            group->show_service_checks ? 1 : 0
         );
     }
 
@@ -217,7 +256,7 @@ namespace Configs {
                    front_proxy_id, landing_proxy_id,
                    column_width_json, profiles_json, scroll_last_profile, test_sort_by, traffic_sort_by, test_items_to_show,
                    type_sort_by, sub_options_json, sub_metadata_json, endpoint_json, sort_method, sort_descending,
-                   route_id, import_sub_route
+                   route_id, import_sub_route, show_service_checks
             FROM groups WHERE id = ?
         )", id);
         if (!query || !query->executeStep()) {
@@ -273,6 +312,7 @@ namespace Configs {
         json["sort_descending"] = query->getColumn(21).getInt() != 0;
         json["route_id"] = query->getColumn(22).getInt();
         json["import_sub_route"] = query->getColumn(23).getInt() != 0;
+        json["show_service_checks"] = query->getColumn(24).getInt() != 0;
 
         auto group = groupFromJson(json);
         // Refreshes could map several identical servers onto one id, leaving it in the persisted list once per server (#1775).
@@ -351,6 +391,7 @@ namespace Configs {
                 }
                 db.execThrow("DELETE FROM groups_order WHERE group_id = ?", id);
                 db.execDeleteByIdInThrow("profiles", "id", std::vector<int>(profileIds.cbegin(), profileIds.cend()));
+                db.execThrow("DELETE FROM sub_country_verdicts WHERE gid = ?", id);
                 db.execThrow("DELETE FROM groups WHERE id = ?", id);
                 return true;
             });
