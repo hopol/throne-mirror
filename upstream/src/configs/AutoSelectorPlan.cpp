@@ -1,5 +1,6 @@
 #include "include/configs/AutoSelectorPlan.h"
 
+#include "include/configs/common/Protocols.h"
 #include "include/configs/outbounds/autoselector.h"
 #include "include/configs/outbounds/chain.h"
 #include "include/configs/outbounds/custom.h"
@@ -79,25 +80,20 @@ namespace Configs
             return static_cast<int>(filters.tiers.size());
         }
 
-        bool hasFreshResult(const std::shared_ptr<Profile> &member, const autoSelector *selector, qint64 now)
+        bool hasFreshResult(const std::shared_ptr<Profile> &member, qint64 now)
         {
             if (member == nullptr || member->latency == 0) return false;
-            if (selector->resultValidityMins <= 0) return false;
             // Rows written before the timestamp column existed carry 0: expired, not fresh.
             if (member->latency_at <= 0) return false;
-            return (now - member->latency_at) <= static_cast<qint64>(selector->resultValidityMins) * 60;
+            return (now - member->latency_at) <= AutoSelectorResultValiditySecs(*member);
         }
 
-        AutoSelectorSkip eligibilityOf(const std::shared_ptr<Profile> &member,
-                                       const autoSelector *selector,
-                                       const MemberFilters &filters,
-                                       qint64 now)
+        AutoSelectorSkip eligibilityOf(const std::shared_ptr<Profile> &member, const MemberFilters &filters)
         {
             if (member == nullptr || member->outbound == nullptr) return AutoSelectorSkip::Missing;
             if (member->type == "chain" || member->type == "autoselector") return AutoSelectorSkip::MetaType;
             if (member->type == "tailscale") return AutoSelectorSkip::Tailscale;
-            if (member->type == "openvpn" || member->type == "openconnect")
-                return AutoSelectorSkip::ManagementEndpoint;
+            if (Protocols::Is(member->type, Protocols::VpnEndpoint)) return AutoSelectorSkip::ManagementEndpoint;
             if (member->outbound->IsExtraCore()) return AutoSelectorSkip::ExtraCore;
             if (member->type == "custom") {
                 const auto custom = member->Custom();
@@ -121,9 +117,6 @@ namespace Configs
                     return AutoSelectorSkip::CountryFilter;
                 }
             }
-            // Only a fresh failure excludes a member; an old one would exile it permanently.
-            if (selector->excludeUnavailable && member->latency < 0 && hasFreshResult(member, selector, now))
-                return AutoSelectorSkip::Unavailable;
             return AutoSelectorSkip::None;
         }
 
@@ -153,17 +146,28 @@ namespace Configs
                    && !landing->outbound->IsExtraCore();
         }
 
-        // Untested (1) outranks failed (2) so a fresh subscription still gets explored.
-        int latencyRank(int latency)
+        // Same test as the core's qualifies(): at or over the cap, a member is only a fallback.
+        bool overCap(int latency, const autoSelector *selector)
         {
-            if (latency > 0) return 0;
+            return latency > 0 && selector->maxRTTms > 0 && latency >= selector->maxRTTms;
+        }
+
+        bool qualifyingLatency(int latency, const autoSelector *selector)
+        {
+            return latency > 0 && !overCap(latency, selector);
+        }
+
+        // Untested outranks over-cap and failed: it may still qualify, so a fresh subscription gets explored.
+        int latencyRank(int latency, const autoSelector *selector)
+        {
+            if (latency > 0) return overCap(latency, selector) ? 2 : 0;
             if (latency == 0) return 1;
-            return 2;
+            return 3;
         }
 
         int effectiveLatency(const std::shared_ptr<Profile> &member, const autoSelector *selector, qint64 now)
         {
-            return hasFreshResult(member, selector, now) ? member->latency : 0;
+            return hasFreshResult(member, now) ? member->latency : 0;
         }
 
         int effectiveLatencyOf(int id, const autoSelector *selector, qint64 now)
@@ -171,12 +175,12 @@ namespace Configs
             return effectiveLatency(dataManager->profilesRepo->GetProfile(id), selector, now);
         }
 
-        bool byLatency(int leftLatency, int rightLatency)
+        bool byLatency(int leftLatency, int rightLatency, const autoSelector *selector)
         {
-            const int leftRank = latencyRank(leftLatency);
-            const int rightRank = latencyRank(rightLatency);
+            const int leftRank = latencyRank(leftLatency, selector);
+            const int rightRank = latencyRank(rightLatency, selector);
             if (leftRank != rightRank) return leftRank < rightRank;
-            if (leftRank == 0) return leftLatency < rightLatency;
+            if (leftLatency > 0) return leftLatency < rightLatency;
             return false;
         }
 
@@ -188,8 +192,9 @@ namespace Configs
             for (int id : std::as_const(ids)) {
                 latency.insert(id, untrusted.contains(id) ? 0 : effectiveLatencyOf(id, selector, now));
             }
-            std::stable_sort(ids.begin(), ids.end(),
-                             [&latency](int left, int right) { return byLatency(latency.value(left), latency.value(right)); });
+            std::stable_sort(ids.begin(), ids.end(), [&latency, selector](int left, int right) {
+                return byLatency(latency.value(left), latency.value(right), selector);
+            });
         }
 
         QList<int> eligibleMembers(const std::shared_ptr<Profile> &ent,
@@ -216,7 +221,6 @@ namespace Configs
             const auto filters = buildFilters(selector);
             const auto now = QDateTime::currentSecsSinceEpoch();
             QMap<AutoSelectorSkip, int> skips;
-            QList<int> unavailable;
             QSet<int> seen;
             for (const auto &group : groups) {
                 // Each member is wrapped in its own group's proxies, so the chain checks run per group.
@@ -231,8 +235,8 @@ namespace Configs
                     seen.insert(id);
                     auto member = dataManager->profilesRepo->GetProfile(id);
                     if (plan != nullptr) plan->membersInGroups++;
-                    const auto skip = eligibilityOf(member, selector, filters, now);
-                    if (skip != AutoSelectorSkip::None && skip != AutoSelectorSkip::Unavailable) {
+                    const auto skip = eligibilityOf(member, filters);
+                    if (skip != AutoSelectorSkip::None) {
                         skips[skip]++;
                         continue;
                     }
@@ -246,21 +250,9 @@ namespace Configs
                         continue;
                     }
                     if (plan != nullptr && selector->Prioritized()) plan->tierOf.insert(id, memberTierOf(member, filters));
-                    if (skip == AutoSelectorSkip::Unavailable) {
-                        unavailable << id;
-                        continue;
-                    }
                     members << id;
                     if (plan != nullptr && effectiveLatency(member, selector, now) > 0) plan->rankedByTest++;
                 }
-            }
-            // Every member's last test failing is an outage, not a dead subscription: excluding
-            // them all would leave nothing that could discover the servers came back.
-            if (members.isEmpty() && !unavailable.isEmpty()) {
-                members = unavailable;
-                if (plan != nullptr) plan->keptUnavailable = static_cast<int>(unavailable.size());
-            } else if (!unavailable.isEmpty()) {
-                skips[AutoSelectorSkip::Unavailable] += static_cast<int>(unavailable.size());
             }
             if (plan != nullptr) {
                 for (auto it = skips.constBegin(); it != skips.constEnd(); ++it) {
@@ -270,7 +262,7 @@ namespace Configs
             return members;
         }
 
-        // The persisted order is the core's ranking prior: keep it, append newcomers by latency.
+        // The persisted order is the core's ranking prior; newcomers follow by latency, over-cap then failed members last.
         QList<int> orderMembers(const QList<int> &members, const QList<int> &persistedPool,
                                 const autoSelector *selector, qint64 now)
         {
@@ -290,6 +282,15 @@ namespace Configs
             }
             sortByLatency(newcomers, selector, now);
             ordered << newcomers;
+
+            QHash<int, int> demotion;
+            demotion.reserve(ordered.size());
+            for (int id : std::as_const(ordered)) {
+                const int latency = effectiveLatencyOf(id, selector, now);
+                demotion.insert(id, latency < 0 ? 2 : overCap(latency, selector) ? 1 : 0);
+            }
+            std::stable_sort(ordered.begin(), ordered.end(),
+                             [&demotion](int left, int right) { return demotion.value(left) < demotion.value(right); });
             return ordered;
         }
 
@@ -330,6 +331,11 @@ namespace Configs
         }
     } // namespace
 
+    qint64 AutoSelectorResultValiditySecs(const Profile &member)
+    {
+        return member.IsUnavailable() ? autoSelector::kFailureValiditySecs : autoSelector::kSuccessValiditySecs;
+    }
+
     QString AutoSelectorSkipReason(AutoSelectorSkip skip)
     {
         switch (skip) {
@@ -343,7 +349,6 @@ namespace Configs
             case AutoSelectorSkip::ManagementEndpoint: return QObject::tr("OpenVPN or OpenConnect profile");
             case AutoSelectorSkip::NameFilter: return QObject::tr("filtered out by name");
             case AutoSelectorSkip::CountryFilter: return QObject::tr("filtered out by country");
-            case AutoSelectorSkip::Unavailable: return QObject::tr("last test failed");
             case AutoSelectorSkip::XrayFullChained:
                 return QObject::tr("Xray full config cannot be combined with the group's proxies");
             default: return {};
@@ -363,7 +368,7 @@ namespace Configs
             return plan;
         }
         selector->Normalize();
-        plan.poolCapUsed = selector->poolCap;
+        plan.poolCapUsed = autoSelector::kPoolCap;
         plan.buildLimitUsed = selector->buildLimit;
 
         const auto members = eligibleMembers(ent, selector, &plan);
@@ -377,7 +382,7 @@ namespace Configs
         const auto now = QDateTime::currentSecsSinceEpoch();
         auto ordered = orderMembers(members, selector->pool, selector, now);
         const int noTier = static_cast<int>(selector->tiers.size());
-        plan.truncated = ordered.size() > selector->poolCap;
+        plan.truncated = ordered.size() > autoSelector::kPoolCap;
         if (selector->Prioritized()) {
             // The core reads this order as its ranking prior, and capByTier keeps it.
             std::stable_sort(ordered.begin(), ordered.end(), [&plan, noTier](int left, int right) {
@@ -385,13 +390,13 @@ namespace Configs
             });
             plan.tierEligible = QList<int>(noTier + 1, 0);
             for (int id : std::as_const(ordered)) plan.tierEligible[plan.tierOf.value(id, noTier)]++;
-            ordered = capByTier(ordered, selector->poolCap, plan.tierOf, noTier);
+            ordered = capByTier(ordered, autoSelector::kPoolCap, plan.tierOf, noTier);
             plan.pool = ordered;
             plan.build = capByTier(ordered, selector->buildLimit, plan.tierOf, noTier);
             plan.tierBuilt = QList<int>(noTier + 1, 0);
             for (int id : std::as_const(plan.build)) plan.tierBuilt[plan.tierOf.value(id, noTier)]++;
         } else {
-            if (plan.truncated) ordered = ordered.mid(0, selector->poolCap);
+            if (plan.truncated) ordered = ordered.mid(0, autoSelector::kPoolCap);
             plan.pool = ordered;
             plan.build = ordered.mid(0, std::min<qsizetype>(ordered.size(), selector->buildLimit));
         }
@@ -433,7 +438,7 @@ namespace Configs
             }
             const int latency = effectiveLatencyOf(id, selector, now);
             if (latency == 0) needed << id;
-            else if (latency > 0 && working != nullptr) ++*working;
+            else if (qualifyingLatency(latency, selector) && working != nullptr) ++*working;
         }
         return needed;
     }
@@ -442,7 +447,8 @@ namespace Configs
     {
         if (ent == nullptr) return false;
         const auto selector = ent->AutoSelector();
-        return selector != nullptr && effectiveLatency(member, selector, QDateTime::currentSecsSinceEpoch()) > 0;
+        return selector != nullptr
+               && qualifyingLatency(effectiveLatency(member, selector, QDateTime::currentSecsSinceEpoch()), selector);
     }
 
     int AutoSelectorStartQuorum(const std::shared_ptr<Profile> &ent)
@@ -451,7 +457,7 @@ namespace Configs
         auto selector = ent->AutoSelector();
         if (selector == nullptr) return 0;
         selector->Normalize();
-        return std::min(std::max(selector->expected, selector->activeSize), selector->buildLimit);
+        return selector->ActiveSize();
     }
 
     bool AutoSelectorBuildChanged(const std::shared_ptr<Profile> &ent)
@@ -470,7 +476,7 @@ namespace Configs
         // The build drops members that fail validation, so an unbuilt one counts only when it is known to work.
         const auto now = QDateTime::currentSecsSinceEpoch();
         for (int id : next) {
-            if (!built.contains(id) && effectiveLatencyOf(id, selector, now) > 0) return true;
+            if (!built.contains(id) && qualifyingLatency(effectiveLatencyOf(id, selector, now), selector)) return true;
         }
         return false;
     }
@@ -483,7 +489,7 @@ namespace Configs
 
         auto members = eligibleMembers(ent, selector, nullptr);
         sortByLatency(members, selector, QDateTime::currentSecsSinceEpoch(), QSet<int>(untrusted.begin(), untrusted.end()));
-        if (members.size() > selector->poolCap) members = members.mid(0, selector->poolCap);
+        if (members.size() > autoSelector::kPoolCap) members = members.mid(0, autoSelector::kPoolCap);
 
         selector->pool = members;
         selector->poolRankedAt = QDateTime::currentSecsSinceEpoch();

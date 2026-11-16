@@ -19,6 +19,7 @@ struct ThemeTokens {
     QColor muted;
     QColor tag;
     QColor danger;
+    QColor warning;
     QColor success;
     QColor info;
     std::array<QColor, 5> chartSeries;
@@ -51,3 +52,9 @@ private:
 };
 
 ThemeManager *themeManager();
+
+// Walks color's HSL lightness away from surface until their contrast ratio reaches ratio; hue and saturation stay.
+QColor ContrastSeparated(const QColor &color, const QColor &surface, double ratio);
+
+// The calm colour the toolbar icons wear: hue at low saturation, kept 3:1 off surface.
+QColor MutedTint(int hue, const QColor &surface);

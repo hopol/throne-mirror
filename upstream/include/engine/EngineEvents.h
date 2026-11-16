@@ -33,20 +33,21 @@ namespace Engine {
         void subscriptionFinished(int importedCount, bool quiet);
         void subscriptionGroupChanged(int groupId, const QList<int> &disturbedProfileIds);
         void subscriptionDiff(const QString &title, const QString &body);
-        // A refresh deleted the running profile; profileId is its only same-name successor in the group.
+        // A refresh stopped the running profile: profileId is its only same-name successor after a delete,
+        // or the profile itself after a name match updated it in place.
         void subscriptionReplacedRunning(int profileId);
         // The routing profile the running config uses changed underneath it.
         void routingRestartNeeded();
         void groupOrderChanged(const QList<int> &groupIds);
         void extraCoreExited();
-        // Groups were added, deleted or repaired outside the window.
+        // Groups were added, edited, deleted or repaired: committed by a service, from the window or the API.
         void groupsChanged();
         void profilesRemoved(const QList<int> &profileIds);
-        // Profiles were edited outside the window.
+        // Profiles were added or edited: committed by a service, from the window or the API.
         void profilesChanged(const QList<int> &profileIds);
-        // Routing profiles were added, edited or deleted outside the window.
+        // Routing profiles were added, edited or deleted: committed by a service, from the window or the API.
         void routesChanged();
-        // API names of the settings (Engine::SettingsRegistry) that changed outside the window.
+        // Database keys a settings commit (Engine::SettingsService) changed, from a window, a menu or the API alike.
         void settingsChanged(const QStringList &keys);
 
     private:

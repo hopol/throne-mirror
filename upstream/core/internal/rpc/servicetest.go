@@ -31,23 +31,26 @@ func (s *server) ServiceTest(ctx context.Context, in *gen.ServiceTestRequest) (*
 		}
 	}
 
-	// Always builds its own box, like the IP test.
-	const current = false
+	current := in.GetTestCurrent()
 	env, err := prepareTestEnv(current, in.GetNeedXray(), in.GetXrayConfig(),
 		in.XrayFullConfigs, in.GetConfig(), in.OutboundTags, in.GetUseDefaultOutbound(),
 		in.GetXrayOutboundDnsStrategy())
 	if err != nil {
 		return nil, err
 	}
-	defer env.close()
+	defer env.Close()
 
+	testCtx := probe.TestContext()
+	if current {
+		testCtx = probe.LiveInstance(testCtx)
+	}
 	timeout := time.Duration(in.GetTestTimeoutMs()) * time.Millisecond
-	results := probe.BatchServiceTest(probe.TestContext(), env.box, env.tags,
+	results := probe.BatchServiceTest(testCtx, env.Box, env.Tags,
 		int(in.GetMaxConcurrency()), !current, defs, timeout, options)
 
 	out := &gen.ServiceTestResponse{Results: make([]*gen.ServiceTestResult, 0, len(results))}
 	for idx, result := range results {
-		out.Results = append(out.Results, serviceResultToGen(env.tags[idx], result))
+		out.Results = append(out.Results, serviceResultToGen(env.Tags[idx], result))
 	}
 	return out, nil
 }

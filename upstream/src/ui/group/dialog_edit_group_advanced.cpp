@@ -91,12 +91,12 @@ DialogEditGroupAdvanced::DialogEditGroupAdvanced(const Configs::SubscriptionOpti
     const auto &settings = Configs::dataManager->settingsRepo;
     ui->update_interval->setSuffix(tr(" min"));
     ui->update_interval->setSpecialValueText(
-        tr("Keep Default (%1)").arg(settings->sub_auto_update >= 30 ? tr("%1 min").arg(settings->sub_auto_update) : tr("Off")));
+        tr("Keep default (%1)").arg(settings->sub_auto_update >= 30 ? tr("%1 min").arg(settings->sub_auto_update) : tr("Off")));
     ui->update_interval->setValue(options.update_interval);
-    ui->server_interval->setItemText(0, tr("Keep Default (%1)").arg(ui->server_interval->itemText(settings->sub_respect_server_interval ? 1 : 2)));
+    ui->server_interval->setItemText(0, tr("Keep default (%1)").arg(ui->server_interval->itemText(settings->sub_respect_server_interval ? 1 : 2)));
     ui->server_interval->setCurrentIndex(options.respect_server_interval ? (*options.respect_server_interval ? 1 : 2) : 0);
     if (serverIntervalHours > 0) {
-        const auto tip = ui->server_interval_l->toolTip() + "\n\n" + tr("This server last sent %1 h.").arg(serverIntervalHours);
+        const auto tip = tr("Use the update interval the subscription server sends (now %1 h).").arg(serverIntervalHours);
         ui->server_interval_l->setToolTip(tip);
         ui->server_interval->setToolTip(tip);
     }
@@ -104,9 +104,9 @@ DialogEditGroupAdvanced::DialogEditGroupAdvanced(const Configs::SubscriptionOpti
     const auto defaults = Subscription::ResolveIdentity(nullptr);
     globalSendHwid = defaults.sendHwid;
     ui->send_hwid->setItemText(static_cast<int>(Configs::sendHwid::keepDefault),
-                               tr("Keep Default (%1)").arg(globalSendHwid ? tr("On") : tr("Off")));
-    ui->tls_version->setItemText(0, tr("Keep Default (%1)").arg(ui->tls_version->itemText(overrideIndex(std::optional(defaults.tlsVersion)))));
-    ui->http_version->setItemText(0, tr("Keep Default (%1)").arg(ui->http_version->itemText(overrideIndex(std::optional(defaults.httpVersion)))));
+                               tr("Keep default (%1)").arg(globalSendHwid ? tr("On") : tr("Off")));
+    ui->tls_version->setItemText(0, tr("Keep default (%1)").arg(ui->tls_version->itemText(overrideIndex(std::optional(defaults.tlsVersion)))));
+    ui->http_version->setItemText(0, tr("Keep default (%1)").arg(ui->http_version->itemText(overrideIndex(std::optional(defaults.httpVersion)))));
     if (auto *model = qobject_cast<QStandardItemModel *>(ui->tls_version->model()); model && !QSslSocket::isProtocolSupported(QSsl::TlsV1_3)) {
         model->item(overrideIndex(std::optional(Configs::subTlsVersion::tls13)))->setEnabled(false);
     }
@@ -168,15 +168,13 @@ DialogEditGroupAdvanced::DialogEditGroupAdvanced(const Configs::SubscriptionOpti
     ADD_ASTERISK(this)
     form->markAll();
 
-    // QScrollArea::sizeHint() caps at 24 font heights, so the window is sized off the content; a short screen scrolls it instead.
+    // QScrollArea::sizeHint() caps at 36x24 font cells: the width follows the content, the height stays capped and scrolls.
     for (auto *nested : ui->scroll_content->findChildren<QLayout *>()) nested->activate();
     const auto margins = layout()->contentsMargins();
-    const auto content = ui->scroll_content->sizeHint();
-    const int frame = 2 * ui->scroll->frameWidth();
-    const QSize full(content.width() + frame + ui->scroll->verticalScrollBar()->sizeHint().width() + margins.left() + margins.right(),
-                     content.height() + frame + qMax(0, layout()->spacing()) + ui->buttonBox->sizeHint().height() + margins.top() + margins.bottom());
+    const int width = ui->scroll_content->sizeHint().width() + 2 * ui->scroll->frameWidth() +
+                      ui->scroll->verticalScrollBar()->sizeHint().width() + margins.left() + margins.right();
     const auto *scr = screen() != nullptr ? screen() : QGuiApplication::primaryScreen();
-    if (scr != nullptr) resize(full.expandedTo(QSize(400, 0)).boundedTo(scr->availableGeometry().size()));
+    if (scr != nullptr) resize(QSize(width, sizeHint().height()).expandedTo(QSize(400, 0)).boundedTo(scr->availableGeometry().size()));
 }
 
 DialogEditGroupAdvanced::~DialogEditGroupAdvanced() {
@@ -243,7 +241,7 @@ void DialogEditGroupAdvanced::syncEndpoint() {
         source.mode = mode;
         source.ipListId = ui->endpoint_list->currentData().toInt();
         if (const auto resolution = Configs::ResolveEndpointSource(source); !resolution.address.isEmpty()) {
-            hint = tr("Profiles connect to %1 (%2).").arg(resolution.address, resolution.origin);
+            hint = tr("Profiles connect to %1 (%2).").arg(resolution.DisplayTarget(), resolution.origin);
         } else if (!resolution.problem.isEmpty()) {
             hint = tr("%1, so profiles use their own addresses.").arg(resolution.problem);
         }
@@ -294,8 +292,8 @@ void DialogEditGroupAdvanced::syncCountryHint() {
         if (!rules.keep.isEmpty()) summary << tr("Keeps %1.").arg(names(rules.keep));
         if (!rules.drop.isEmpty()) summary << tr("Removes %1.").arg(names(rules.drop));
         const QString warning = profileCount > 0
-            ? tr("After each update, profiles whose exit country is unknown are IP-tested, so the next update can test up to %n profile(s). On a large group this takes a while.", nullptr, profileCount)
-            : tr("After each update, profiles whose exit country is unknown are IP-tested. On a large subscription this takes a while.");
+            ? tr("After each update, profiles whose exit country is unknown get an exit IP test, so the next update can test up to %n profile(s). On a large group this takes a while.", nullptr, profileCount)
+            : tr("After each update, profiles whose exit country is unknown get an exit IP test. On a large subscription this takes a while.");
         hint = summary.join(QLatin1Char(' ')) + QLatin1Char('\n') + warning;
     }
     ui->country_hint->setText(hint);

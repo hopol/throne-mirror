@@ -88,8 +88,6 @@ namespace API {
 
         libcore::QuerySpeedTestResponse QueryCurrentSpeedTests(bool *rpcOK);
 
-        libcore::QueryCountryTestResponse QueryCountryTestResults(bool *rpcOK);
-
         libcore::GenWgKeyPairResponse GenWgKeyPair(bool *rpcOK);
 
         libcore::WarpRegisterResponse WarpRegister(bool *rpcOK, const QString &tunnelType, const QString &proxy,
@@ -99,6 +97,8 @@ namespace API {
         libcore::GenQuicSignatureResponse GenQuicSignature(bool *rpcOK, const QString &domain);
 
         QString InstallDashboard(bool *rpcOK, const QString &archivePath, const QString &targetDir) const;
+
+        QString InstallTor(bool *rpcOK, const QString &archivePath, const QString &sha256) const;
 
         // Empty name = the OS has no default route.
         [[nodiscard]] libcore::GetDefaultInterfaceResponse GetDefaultInterface(bool *rpcOK) const;

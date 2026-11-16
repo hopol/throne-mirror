@@ -37,19 +37,21 @@ namespace Engine::WarpService {
 
     struct ChangeResult {
         bool changed = false;
-        // WARP was on or is on now, so the running config is out of date.
+        // The exit wrapper (WARP or Tor) changed, so the running config is out of date.
         bool restartNeeded = false;
+        bool torTurnedOff = false;
     };
 
-    // Writes and saves enable_warp and warp_mode. Refuses an unknown mode; a change that changes nothing succeeds. A real
-    // change is refused while Routing Settings is open, when enabled with an unconfigured mode, and when beforeWrite refuses.
+    // Commits enable_warp and warp_mode through SettingsService, which raises the restart hint; enabling WARP turns enable_tor off and logs
+    // it. Refuses an unknown mode; a change that changes nothing succeeds. A real change is refused while Routing Settings is open, when
+    // enabled with an unconfigured mode, when beforeWrite refuses, and while Throne exits.
     std::optional<ServiceError> Apply(const Change &change, const std::function<std::optional<ServiceError>()> &beforeWrite,
                                       ChangeResult *result);
 
     struct RegisterResult {
         // Nothing was stored when set.
         std::optional<ServiceError> error;
-        // WARP is on, so the running config's identity is out of date.
+        // WARP is on and Tor is not, so the running config's identity is out of date.
         bool restartNeeded = false;
     };
 

@@ -75,6 +75,9 @@ namespace Engine {
         static constexpr int kMaxServiceCheckProfiles = 100;
         bool runServiceChecks(const QList<int>& profileIDs, const std::function<void()>& onFinished = {}, bool interactive = true);
 
+        // The running profile, through the running core's own proxy outbound.
+        bool runCurrentServiceCheck(const std::function<void()>& onFinished = {}, bool interactive = true);
+
         // Refused while another test runs. Saves nothing; onDone runs once, on a test thread.
         bool runChainStepTest(const QList<int>& hops, int gid, const std::function<void(const ChainStepReport&)>& onDone);
 
@@ -114,15 +117,22 @@ namespace Engine {
 
         void runSpeedProbe(const Target& target);
 
+        bool runServiceSession(const QList<int>& requestedIDs, bool testCurrent, const std::function<void()>& onFinished, bool interactive);
+
         void runServiceProbe(const Target& target, const std::shared_ptr<const ServiceChecks::Definitions>& definitions);
 
-        void applyUrlResult(const std::shared_ptr<Configs::Profile>& ent, const libcore::URLTestResp& res,
+        // These return false for an aborted result, which changes and saves nothing.
+        bool applyUrlResult(const std::shared_ptr<Configs::Profile>& ent, const libcore::URLTestResp& res,
                             const QHash<QString, bool>* vpnConnected = nullptr);
 
-        void applyIpResult(const std::shared_ptr<Configs::Profile>& ent, const libcore::IPTestRes& res);
+        bool applyIpResult(const std::shared_ptr<Configs::Profile>& ent, const libcore::IPTestRes& res);
 
         void applyServiceResult(const std::shared_ptr<Configs::Profile>& ent, const libcore::ServiceTestResult& res,
                                 const QList<ServiceChecks::Category>& categories);
+
+        void reportSessionBusy(bool interactive) const;
+
+        void reportProbeFailure(const QString& failedText, const QString& coreError, int contextID) const;
 
         QString contextName(int entID) const;
 
@@ -133,7 +143,8 @@ namespace Engine {
 
         void pollSpeedTest(const QMap<QString, int>& tag2entID, bool testCurrent, quint64 gen);
 
-        void pollCountryTest(const QMap<QString, int>& tag2entID, bool testCurrent, quint64 gen);
+        // Puts back the dl/ul a poll showed on every polled profile outside `stored`.
+        void restorePolledSpeeds(const QSet<int>& stored);
 
         void creditTraffic(const std::shared_ptr<Configs::Profile>& profile, const QString& tag,
                            qint64 curUp, qint64 curDown);
@@ -154,6 +165,9 @@ namespace Engine {
         // Tests bypass the clash tracker, so their bytes are counted only here, diffed per tag.
         QMutex creditMu_;
         QHash<QString, QPair<qint64, qint64>> credited_;
+
+        // UI thread: the dl/ul each polled profile had before its speed test showed partial values.
+        QHash<int, QPair<QString, QString>> speedBefore_;
 
         // Last, so it is destroyed first, while the members its probes use still exist.
         QThreadPool pool_;

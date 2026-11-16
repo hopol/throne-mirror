@@ -30,6 +30,7 @@ service LibcoreService {
   rpc GenQuicSignature(GenQuicSignatureRequest) returns (GenQuicSignatureResponse);
 
   rpc InstallDashboard(InstallDashboardRequest) returns (ErrorResp);
+  rpc InstallTor(InstallTorRequest) returns (ErrorResp);
   //
   rpc QueryAutoSelectors(EmptyReq) returns (QueryAutoSelectorsResponse);
   rpc AutoSelectorAction(AutoSelectorActionRequest) returns (ErrorResp);
@@ -513,6 +514,11 @@ message InstallDashboardRequest {
   optional string target_dir = 2 [default = ""];
 }
 
+message InstallTorRequest {
+  optional string archive_path = 1 [default = ""];
+  optional string sha256 = 2 [default = ""];
+}
+
 message DiagnosticsAttachment {
   optional string name = 1 [default = ""];
   optional bytes data = 2;
@@ -826,6 +832,8 @@ message ServiceTestRequest {
   // Ids of the checks to run; empty runs them all.
   repeated string only = 11;
   optional bool skip_ip_info = 12 [default = false];
+  // Checks the running instance's proxy outbound instead of building a box from `config`.
+  optional bool test_current = 13 [default = false];
 }
 
 message ServiceCheckOutcome {

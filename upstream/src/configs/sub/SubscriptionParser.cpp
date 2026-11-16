@@ -3,6 +3,7 @@
 #include "include/configs/ParseDiagnostics.h"
 #include "include/configs/common/DnsTunnel.h"
 #include "include/configs/common/OutboundFactory.h"
+#include "include/configs/common/Protocols.h"
 #include "include/configs/common/utils.h"
 #include "include/configs/sub/SubscriptionScan.hpp"
 #include "include/configs/sub/clash.hpp"
@@ -22,6 +23,7 @@
 #include <algorithm>
 #include <cctype>
 #include <initializer_list>
+#include <optional>
 #include <string_view>
 
 namespace Subscription {
@@ -46,77 +48,17 @@ namespace Subscription {
             invalid,
         };
 
-        struct Protocol {
-            const char *type;
-            const char *schemes[4];
-            const char *singbox[2];
-            const char *clash[2];
-        };
-
-        constexpr Protocol kProtocols[] = {
-            {"socks", {"socks5://", "socks4://", "socks4a://", "socks://"}, {"socks"}, {"socks5"}},
-            {"http", {"http://", "https://"}, {"http"}, {"http"}},
-            {"shadowsocks", {"ss://"}, {"shadowsocks"}, {"ss"}},
-            {"vmess", {"vmess://"}, {"vmess"}, {"vmess"}},
-            {"vless", {"vless://"}, {"vless"}, {"vless"}},
-            {"trojan", {"trojan://"}, {"trojan"}, {"trojan"}},
-            {"anytls", {"anytls://"}, {"anytls"}, {"anytls"}},
-            {"mieru", {"mierus://", "mieru://"}, {"mieru"}, {}},
-            {"snell", {"snell://"}, {"snell"}, {"snell"}},
-            {"hysteria", {"hysteria://", "hysteria2://", "hy2://"}, {"hysteria", "hysteria2"}, {"hysteria", "hysteria2"}},
-            {"tuic", {"tuic://"}, {"tuic"}, {"tuic"}},
-            {"juicity", {"juicity://"}, {"juicity"}, {}},
-            {"trusttunnel", {"tt://"}, {"trusttunnel"}, {}},
-            {"shadowtls", {"shadowtls://"}, {"shadowtls"}, {}},
-            {"wireguard", {"awg://", "wg://", "wireguard://"}, {"wireguard"}, {}},
-            {"masque", {}, {"masque"}, {"masque"}},
-            {"ssh", {"ssh://"}, {"ssh"}, {"ssh"}},
-            {"naive", {"naive+https://", "naive+quic://"}, {"naive"}, {}},
-            // dnst:// links of the masterdns transport go to masterdns, see link().
-            {"dnstt", {"dnst://", "slipnet://", "slipnet-enc://", "slipnet-bundle-enc://"}, {"dnstt"}, {}},
-            {"masterdns", {"masterdns://", "stormdns://"}, {"masterdns"}, {}},
-        };
-
-        const char *typeForScheme(std::string_view link) {
-            for (const auto &p : kProtocols) {
-                for (const char *scheme : p.schemes) {
-                    if (scheme != nullptr && link.starts_with(scheme)) return p.type;
-                }
-            }
-            return nullptr;
-        }
-
-        const char *typeForSingBox(const QString &type) {
-            for (const auto &p : kProtocols) {
-                for (const char *name : p.singbox) {
-                    if (name != nullptr && type == QLatin1String(name)) return p.type;
-                }
-            }
-            return nullptr;
-        }
-
-        const char *typeForClash(const std::string &type) {
-            for (const auto &p : kProtocols) {
-                for (const char *name : p.clash) {
-                    if (name != nullptr && type == name) return p.type;
-                }
-            }
-            return nullptr;
-        }
-
-        // The links' REALITY preference (useXrayVless), limited to the networks Xray runs REALITY over; sing-box also carries ws.
-        bool clashRealityOnXray(const clash::Proxies &out) {
-            if (!out.tls || out.reality_opts.public_key.empty()) return false;
-            if (Configs::dataManager->settingsRepo->xray_vless_preference == Configs::Xray::XhttpOnly) return false;
-            return out.network.empty() || out.network == "tcp" || out.network == "grpc";
-        }
-
-        // sing-box VLESS rejects the vision-udp443 flow; Xray accepts it.
         bool clashUsesXrayVless(const clash::Proxies &out) {
+            if (out.type != "vless") return false;
             const auto flow = QString::fromStdString(out.flow).trimmed().toLower();
-            const bool singBoxFlow = flow.isEmpty() || flow == "none" || flow == "xtls-rprx-vision";
-            return out.type == "vless" && (out.network == "xhttp" || (!out.encryption.empty() && out.encryption != "none")
-                                           || !singBoxFlow || clashRealityOnXray(out));
+            Configs::VlessTraits traits;
+            // Not NormalizeXrayNetwork: xrayStreamSetting::ParseFromClash folds only tcp.
+            traits.transport = out.network == "tcp" ? QStringLiteral("raw") : QString::fromStdString(out.network);
+            traits.reality = out.tls && !out.reality_opts.public_key.empty();
+            // sing-box VLESS rejects the vision-udp443 flow; Xray accepts it.
+            traits.xrayOnly = (!out.encryption.empty() && out.encryption != "none")
+                              || !(flow.isEmpty() || flow == "none" || flow == "xtls-rprx-vision");
+            return Configs::useXrayVless(traits);
         }
 
         // Non-proxy entries every full config carries; skipping them is not worth a report.
@@ -599,6 +541,156 @@ namespace Subscription {
             }
         }
 
+        // Thrown past ClashMerges' limits; Parser::clash then reports the entry, or the document, as unreadable.
+        struct ClashMergeLimit {};
+
+        // Flattens YAML merge keys as gopkg.in/yaml.v3 (mihomo) does; fkYAML keeps "<<" as an ordinary key.
+        class ClashMerges {
+        public:
+            // Without "<<" in the text there is nothing to flatten, so such documents skip the scan entirely.
+            explicit ClashMerges(std::string_view text) : enabled(text.find("<<") != std::string_view::npos) {}
+
+            std::optional<fkyaml::node> entry(const fkyaml::node &node) {
+                if (!enabled) return std::nullopt;
+                entryWork = 0;
+                return flatten(node, 0);
+            }
+
+            // Follows only the root's own merge key, so a proxies list supplied by an anchor is found.
+            const fkyaml::node *rootValue(const fkyaml::node &root, const char *key) {
+                entryWork = 0;
+                return lookup(root, fkyaml::node(key), 0);
+            }
+
+        private:
+            static constexpr int kDepth = 32;
+            static constexpr std::size_t kEntryWork = 1 << 16;
+            static constexpr std::size_t kDocumentWork = 1 << 22;
+
+            const bool enabled;
+            std::size_t entryWork = 0;
+            std::size_t documentWork = 0;
+            // Anchored values found free of merge keys; aliases share their anchor's value, so each is scanned once.
+            QSet<const void *> clean;
+
+            void spend() {
+                if (++entryWork > kEntryWork || ++documentWork > kDocumentWork) throw ClashMergeLimit{};
+            }
+
+            static bool isMergeKey(const fkyaml::node &key) {
+                return key.is_string() && key.as_str() == "<<";
+            }
+
+            static bool isMappingList(const fkyaml::node &value) {
+                if (!value.is_sequence()) return false;
+                const auto &items = value.as_seq();
+                return std::all_of(items.begin(), items.end(), [](const fkyaml::node &item) { return item.is_mapping(); });
+            }
+
+            const fkyaml::node *lookup(const fkyaml::node &mapping, const fkyaml::node &key, int depth) {
+                if (depth > kDepth) throw ClashMergeLimit{};
+                spend();
+                const auto &map = mapping.as_map();
+                if (const auto it = map.find(key); it != map.end()) return &it->second;
+                const auto merge = enabled ? map.find(fkyaml::node("<<")) : map.end();
+                if (merge == map.end()) return nullptr;
+                if (merge->second.is_mapping()) return lookup(merge->second, key, depth + 1);
+                if (!isMappingList(merge->second)) return nullptr;
+                for (const auto &source : merge->second.as_seq()) {
+                    if (const auto *value = lookup(source, key, depth + 1)) return value;
+                }
+                return nullptr;
+            }
+
+            // Copying an anchor node would destroy the anchored value along with the copy, so anchors become aliases.
+            fkyaml::node copy(const fkyaml::node &node, int depth) {
+                if (depth > kDepth) throw ClashMergeLimit{};
+                spend();
+                if (node.is_anchor()) return fkyaml::node::alias_of(node);
+                if (node.is_alias()) return node;
+                if (node.is_sequence()) {
+                    auto out = fkyaml::node::sequence();
+                    for (const auto &item : node.as_seq()) out.as_seq().push_back(copy(item, depth + 1));
+                    return out;
+                }
+                if (node.is_mapping()) {
+                    auto out = fkyaml::node::mapping();
+                    for (const auto &[key, value] : node.as_map()) out.as_map().emplace(copy(key, depth + 1), copy(value, depth + 1));
+                    return out;
+                }
+                return node;
+            }
+
+            // Explicit keys are already in `out`; within a list, earlier mappings win.
+            void mergeFrom(fkyaml::node &out, const fkyaml::node &value, int depth) {
+                if (depth > kDepth) throw ClashMergeLimit{};
+                if (value.is_mapping()) {
+                    mergeMapping(out, value, depth);
+                } else if (isMappingList(value)) {
+                    for (const auto &source : value.as_seq()) mergeMapping(out, source, depth);
+                }
+            }
+
+            void mergeMapping(fkyaml::node &out, const fkyaml::node &source, int depth) {
+                const fkyaml::node *nested = nullptr;
+                for (const auto &[key, value] : source.as_map()) {
+                    spend();
+                    if (isMergeKey(key)) {
+                        nested = &value;
+                    } else if (!out.as_map().contains(key)) {
+                        auto flat = flatten(value, depth + 1);
+                        out.as_map().emplace(copy(key, depth + 1), flat ? std::move(*flat) : copy(value, depth + 1));
+                    }
+                }
+                if (nested != nullptr) mergeFrom(out, *nested, depth + 1);
+            }
+
+            // Merge keys nested deeper than kDepth are not looked for.
+            std::optional<fkyaml::node> flatten(const fkyaml::node &node, int depth) {
+                if (depth > kDepth) return std::nullopt;
+                spend();
+                const bool shared = node.is_anchor() || node.is_alias();
+                std::optional<fkyaml::node> out;
+                if (node.is_mapping()) {
+                    const auto &map = node.as_map();
+                    if (shared && clean.contains(&map)) return std::nullopt;
+                    const fkyaml::node *merge = nullptr;
+                    for (auto it = map.begin(); it != map.end(); ++it) {
+                        const bool isMerge = isMergeKey(it->first);
+                        std::optional<fkyaml::node> value;
+                        if (!isMerge) value = flatten(it->second, depth + 1);
+                        if (!out && !isMerge && !value) continue;
+                        if (!out) {
+                            out.emplace(fkyaml::node::mapping());
+                            for (auto prev = map.begin(); prev != it; ++prev)
+                                out->as_map().emplace(copy(prev->first, depth + 1), copy(prev->second, depth + 1));
+                        }
+                        if (isMerge) {
+                            merge = &it->second;
+                        } else {
+                            out->as_map().emplace(copy(it->first, depth + 1), value ? std::move(*value) : copy(it->second, depth + 1));
+                        }
+                    }
+                    if (merge != nullptr) mergeFrom(*out, *merge, depth + 1);
+                    if (!out && shared) clean.insert(&map);
+                } else if (node.is_sequence()) {
+                    const auto &items = node.as_seq();
+                    if (shared && clean.contains(&items)) return std::nullopt;
+                    for (std::size_t i = 0; i < items.size(); ++i) {
+                        auto item = flatten(items[i], depth + 1);
+                        if (!out && !item) continue;
+                        if (!out) {
+                            out.emplace(fkyaml::node::sequence());
+                            for (std::size_t prev = 0; prev < i; ++prev) out->as_seq().push_back(copy(items[prev], depth + 1));
+                        }
+                        out->as_seq().push_back(item ? std::move(*item) : copy(items[i], depth + 1));
+                    }
+                    if (!out && shared) clean.insert(&items);
+                }
+                return out;
+            }
+        };
+
         class Parser {
         public:
             explicit Parser(const ParseSink &sink) : sink(sink) {}
@@ -797,15 +889,15 @@ namespace Subscription {
                     return;
                 }
                 const auto type = out["type"].toString();
-                const char *profileType = typeForSingBox(type);
-                if (profileType == nullptr) {
+                const auto *protocol = Configs::Protocols::ForSingBox(type);
+                if (protocol == nullptr) {
                     if (isSingBoxInfraType(type)) return;
                     report(source, false, {parserWarning(type.isEmpty()
                         ? QCoreApplication::translate("Validation", "Missing \"type\".")
                         : QCoreApplication::translate("Validation", "Unsupported sing-box type \"%1\".").arg(type))});
                     return;
                 }
-                auto ent = Configs::ProfilesRepo::NewProfile(profileType);
+                auto ent = Configs::ProfilesRepo::NewProfile(protocol->Id());
                 Validation::Issues issues;
                 const bool parsed = scoped([&] { return ent->outbound->ParseFromJson(out); }, issues);
                 accept(ent, parsed, std::move(issues), source);
@@ -907,9 +999,11 @@ namespace Subscription {
         void Parser::clash(std::string_view text) {
             try {
                 const fkyaml::node root = fkyaml::node::deserialize(sanitizeClashYaml(text));
+                ClashMerges merges(text);
                 const bool mapping = root.is_mapping();
-                if (!mapping || !root.contains("proxies") || !root["proxies"].is_sequence() || root["proxies"].empty()) {
-                    const auto message = mapping && root.contains("proxy-providers")
+                const fkyaml::node *proxies = mapping ? merges.rootValue(root, "proxies") : nullptr;
+                if (proxies == nullptr || !proxies->is_sequence() || proxies->empty()) {
+                    const auto message = mapping && merges.rootValue(root, "proxy-providers") != nullptr
                         ? QCoreApplication::translate("Validation", "This Clash config only lists proxy-providers, which are not downloaded. Add each provider's URL as a subscription instead.")
                         : QCoreApplication::translate("Validation", "This Clash config has no proxies list.");
                     reportDocument({}, {parserError(message)});
@@ -917,18 +1011,20 @@ namespace Subscription {
                 }
 
                 int index = 0;
-                for (const auto &node : root["proxies"]) {
+                for (const auto &node : *proxies) {
                     ++index;
                     QString reason;
+                    std::optional<fkyaml::node> merged;
                     try {
-                        clashProxy(node, index);
+                        merged = merges.entry(node);
+                        clashProxy(merged ? *merged : node, index);
                         continue;
                     } catch (const std::exception &ex) {
                         reason = QCoreApplication::translate("Validation", "Could not be read: %1").arg(QString::fromUtf8(ex.what()));
                     } catch (...) {
                         reason = QCoreApplication::translate("Validation", "Could not be read.");
                     }
-                    report([&] { return clashSource(clashEntryName(node), index); }, false, {parserError(reason)});
+                    report([&] { return clashSource(clashEntryName(merged ? *merged : node), index); }, false, {parserError(reason)});
                 }
             // fkYAML can throw beyond fkyaml::exception on hostile input (bad_alloc, length_error).
             } catch (const std::exception &ex) {
@@ -951,11 +1047,11 @@ namespace Subscription {
                 Configs::ParseDiag::Scope scope;
                 const auto out = node.get_value<clash::Proxies>();
                 name = QString::fromStdString(out.name);
-                if (const char *profileType = typeForClash(out.type); profileType == nullptr) {
+                if (const auto *protocol = Configs::Protocols::ForClash(out.type); protocol == nullptr) {
                     infra = isClashInfraType(out.type);
                     unsupported = QString::fromStdString(out.type);
                 } else {
-                    ent = Configs::ProfilesRepo::NewProfile(clashUsesXrayVless(out) ? "xrayvless" : profileType);
+                    ent = Configs::ProfilesRepo::NewProfile(clashUsesXrayVless(out) ? QLatin1String("xrayvless") : protocol->Id());
                     parsed = ent->outbound->ParseFromClash(out);
                 }
                 issues = scope.take();
@@ -1050,13 +1146,13 @@ namespace Subscription {
                 return;
             }
 
-            const char *profileType = typeForScheme(line);
-            if (profileType == nullptr) {
+            const auto *protocol = Configs::Protocols::ForLink(line);
+            if (protocol == nullptr) {
                 if (isRoutingLink(line)) return;
                 if (const auto scheme = linkScheme(line); !scheme.empty() && sink.report) {
                     const auto written = toQString(scheme);
                     const auto lower = written.toLower();
-                    const bool known = lower == "json" || typeForScheme((lower + "://").toStdString()) != nullptr;
+                    const bool known = lower == "json" || Configs::Protocols::ForLink((lower + "://").toStdString()) != nullptr;
                     const auto message = known
                         ? QCoreApplication::translate("Validation", "Write the link type in lower case: \"%1://\", not \"%2://\".").arg(lower, written)
                         : QCoreApplication::translate("Validation", "Unsupported link type \"%1://\".").arg(written);
@@ -1071,12 +1167,12 @@ namespace Subscription {
             } else if (line.starts_with("dnst://") && Configs::DnstLinkTransport(str) == QLatin1String("masterdns")) {
                 ent = Configs::ProfilesRepo::NewProfile("masterdns");
             } else {
-                ent = Configs::ProfilesRepo::NewProfile(profileType);
+                ent = Configs::ProfilesRepo::NewProfile(protocol->Id());
             }
             Validation::Issues issues;
             const bool parsed = scoped([&] { return ent->outbound->ParseFromLink(str); }, issues);
 
-            if (parsed && std::string_view(profileType) == "wireguard") setNameIfEmpty(*ent, {overrideName});
+            if (parsed && protocol->id == "wireguard") setNameIfEmpty(*ent, {overrideName});
 
             accept(ent, parsed, std::move(issues), [&] { return linkSource(str, ent->outbound.get()); });
         }
@@ -1121,7 +1217,7 @@ namespace Subscription {
                     damaged(refusal);
                     return;
                 }
-                ent = Configs::ProfilesRepo::NewProfile(type == "hysteria2" ? QStringLiteral("hysteria") : type);
+                ent = Configs::ProfilesRepo::NewProfile(Configs::Protocols::Canonical(type));
             }
             if (ent->outbound->invalid) {
                 damaged(type.isEmpty() ? QCoreApplication::translate("Validation", "Missing \"type\".")

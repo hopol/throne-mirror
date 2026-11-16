@@ -13,11 +13,14 @@
 
 #include "include/configs/sub/GroupUpdater.hpp"
 #include "include/configs/sub/RouteUpdater.hpp"
+#include "include/engine/EditLocks.h"
 #include "include/engine/EngineEvents.h"
 #include "include/engine/Lifecycle.h"
 #include "include/engine/ThreadCheck.h"
 #include "include/engine/connection/ConnectionManager.h"
 #include "include/engine/services/AssetUpdates.h"
+#include "include/engine/services/GroupService.h"
+#include "include/engine/services/SettingsService.h"
 #include "include/engine/services/StatsService.h"
 #include "include/engine/supervisor/CoreSupervisor.h"
 #include "include/engine/vpn/VpnAuthController.h"
@@ -26,7 +29,6 @@
 #include "include/scanner/IpListUpdater.h"
 #include "include/scanner/ScanManager.h"
 #include "include/ui/stats/dialog_auto_selector.h"
-#include "include/ui/setting/dialog_rule_tester.h"
 #include "include/sys/KillSwitch.hpp"
 #include "include/sys/AutoRun.hpp"
 #include "include/sys/UrlScheme.hpp"
@@ -43,10 +45,12 @@
 #include "include/database/GroupsRepo.h"
 #include "include/database/ProfilesRepo.h"
 #include "include/database/RoutesRepo.h"
+#include "include/database/SettingsSchema.h"
 #include "include/global/Common.h"
 
 #include "include/ui/utils/ProfilesTableFilterHeader.h"
 #include "include/ui/utils/ProfilesTableModel.h"
+#include "include/ui/utils/ThemedIcon.hpp"
 #include "include/ui/utils/UiMode.h"
 
 #include "include/ui/group/dialog_edit_group.h"
@@ -103,6 +107,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(host->stats(), &Engine::StatsService::trafficStopped, this, [this] { refresh_status("STOP"); });
     connect(host->stats(), &Engine::StatsService::connectionsUpdated, this, &MainWindow::UpdateConnectionList);
     connect(host->connection(), &Engine::ConnectionManager::statusChanged, this, [this] { refresh_status(); });
+    connect(host->connection(), &Engine::ConnectionManager::statusChanged, this, &MainWindow::refresh_action_states);
     connect(host->connection(), &Engine::ConnectionManager::busyChanged, this, &MainWindow::refresh_startstop_button);
     connect(host->connection(), &Engine::ConnectionManager::profileRowsChanged, this, [this](const QList<int> &ids) { refresh_proxy_list(ids); });
     connect(host->connection(), &Engine::ConnectionManager::runMarker, this, &MainWindow::addRunMarker);
@@ -171,7 +176,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         if (groupIds.contains(Configs::dataManager->settingsRepo->current_group)) refresh_proxy_list({}, true);
     });
     connect(engineEvents, &Engine::EngineEvents::groupsChanged, this, [this] {
-        dialog_message_impl(MwMessage::GroupsChanged, {});
+        refresh_groups();
+        profilesTableModel->invalidateAddresses();
     });
     connect(engineEvents, &Engine::EngineEvents::profilesRemoved, this, [this](const QList<int> &) {
         refresh_proxy_list({}, true, RefreshAnchor::Removal);
@@ -179,7 +185,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(engineEvents, &Engine::EngineEvents::profilesChanged, this, [this](const QList<int> &) { refresh_proxy_list({}, true); });
     // The title and tray tooltip name the routing profile in effect.
     connect(engineEvents, &Engine::EngineEvents::routesChanged, this, [this] { refresh_status(); });
-    connect(engineEvents, &Engine::EngineEvents::settingsChanged, this, [this, syncSettingsMirrors](const QStringList &) {
+    connect(engineEvents, &Engine::EngineEvents::settingsChanged, this, [this, syncSettingsMirrors](const QStringList &keys) {
+        applySettingsUi(Configs::SettingsSchema::EffectsOf(keys));
         refresh_status();
         syncSettingsMirrors();
     });
@@ -209,6 +216,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->splitter->restoreState(DecodeB64IfValid(Configs::dataManager->settingsRepo->splitter_state));
     setLogHighlighter(themeUsesDarkLog(Configs::dataManager->settingsRepo->theme));
     setupLogView();
+    setupThemedIcons();
     updateLogFilterFields();
     runOnThread([=, this] {
         log_process_loop();
@@ -217,7 +225,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
     connect(qApp->styleHints(), &QStyleHints::colorSchemeChanged, this, [=,this](const Qt::ColorScheme& scheme) {
         setLogHighlighter(scheme == Qt::ColorScheme::Dark);
-        themeManager()->ApplyTheme(Configs::dataManager->settingsRepo->theme, true);
+        // The shown theme, not the stored one: an open settings window may be previewing another.
+        themeManager()->ApplyTheme(themeManager()->current_theme, true);
     });
 #endif
     connect(themeManager(), &ThemeManager::themeChanged, this, [=,this](const QString& theme){
@@ -251,7 +260,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->menu_start, &QAction::triggered, this, [=,this]() { profile_start(); });
     connect(ui->menu_stop, &QAction::triggered, this, [=,this]() { profile_stop(false, false, true); });
     connect(ui->toolButton_startstop, &QAbstractButton::clicked, this, [=,this]() {
-        if (runningSnapshot() != nullptr) profile_stop(false, false, true);
+        // During Connecting the stop waits for the start, which a first start has not made running yet.
+        const bool stops = runningSnapshot() != nullptr || connection()->connectionState() == ConnectionState::Connecting;
+        if (stops) profile_stop(false, false, true);
         else profile_start();
     });
     ui->toolButton_startstop->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -275,8 +286,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->tabWidget->tabBar(), &QWidget::customContextMenuRequested, this,
             [this](const QPoint& pos) { show_group_tab_menu(pos); });
     auto btnFilter = new QToolButton(this);
-    btnFilter->setIcon(QIcon(":/icon/filter.png"));
-    btnFilter->setToolTip(QString("%1\n%2").arg(tr("Enable Filter"), QKeySequence(QKeySequence::Find).toString(QKeySequence::NativeText)));
+    btnFilter->setIcon(ThemedIcon(QStringLiteral("funnel")));
+    btnFilter->setToolTip(QString("%1 (%2)").arg(tr("Enable Filter"), QKeySequence(QKeySequence::Find).toString(QKeySequence::NativeText)));
     btnFilter->setShortcut(QKeySequence::Find);
     btnFilter->setCheckable(true);
     // Sits inside the tab strip: an ignored right-click here would propagate to the group menu.
@@ -311,13 +322,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     applyTopBarMetrics();
 
     ui->menubar->setVisible(false);
-    connect(ui->actionRuntime_Stats, &QAction::triggered, this, [=, this]() {
-        ui->stats_widget->setCurrentWidget(ui->runtime_tab);
-        if (ui->splitter->sizes().value(1) < ui->stats_widget->tabBar()->sizeHint().height()) {
-            const auto height = ui->splitter->size().height();
-            ui->splitter->setSizes({height / 2, height / 2});
-        }
-    });
     ui->actionTraffic_Stats->setVisible(!Configs::dataManager->settingsRepo->disable_traffic_aggregation);
     connect(ui->actionTraffic_Stats, &QAction::triggered, this, [=, this]() {
         USE_DIALOG(DialogTrafficStats)
@@ -343,16 +347,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionUpdate_Rule_Sets, &QAction::triggered, this, [] {
         Engine::AssetUpdates::UpdateRuleSets([](const Engine::AssetUpdates::RuleSetResult &result) {
             if (!result.coreReachable) {
-                MessageBoxWarning(tr("Update Rule-Sets"), result.error);
+                MessageBoxWarning(tr("Update rule-sets"), result.error);
                 return;
             }
             QStringList problems = result.failures;
             if (!result.error.isEmpty()) problems.prepend(result.error);
             const auto summary = tr("%n remote rule-set(s) refreshed", nullptr, result.updated);
             if (!problems.isEmpty()) {
-                MessageBoxWarning(tr("Update Rule-Sets"), summary + "\n\n" + problems.join("\n"));
+                MessageBoxWarning(tr("Update rule-sets"), summary + "\n\n" + problems.join("\n"));
             } else {
-                MessageBoxInfo(tr("Update Rule-Sets"), summary);
+                MessageBoxInfo(tr("Update rule-sets"), summary);
             }
         });
     });
@@ -366,6 +370,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->stats_widget->tabBar(), &QTabBar::currentChanged, this, [=,this](int index)
     {
         Configs::dataManager->settingsRepo->stats_tab = ui->stats_widget->tabBar()->currentIndex();
+        Configs::dataManager->settingsRepo->Save();
         syncConnectionViewState();
     });
     syncConnectionViewState();
@@ -391,19 +396,23 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     profilesFilterModel = new ProfilesFilterProxyModel(this);
     profilesFilterModel->setSourceModel(profilesTableModel);
     ui->profilesTableView->setModel(profilesFilterModel);
-    connect(ui->profilesTableView->selectionModel(), &QItemSelectionModel::selectionChanged, this,
-            [this] { refresh_startstop_button(); });
-    ui->profilesTableView->rowsSwapped = [this](int row1, int row2)
+    connect(ui->profilesTableView->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this] {
+        refresh_startstop_button();
+        refresh_action_states();
+    });
+    // A reset clears the selection without selectionChanged.
+    connect(profilesFilterModel, &QAbstractItemModel::modelReset, this, &MainWindow::refresh_action_states);
+    ui->profilesTableView->rowDropped = [this](int from, int target, bool below)
     {
         // A drop position in a filtered list says nothing about the group's real order.
         if (profilesFilterModel->hasActiveFilter()) return;
-        if (row1 == row2) return;
         auto group = Configs::dataManager->groupsRepo->CurrentGroup();
-        // A hand-placed row is a manual order, which a kept sort would undo.
-        group->SetSort({});
+        if (group == nullptr) return;
+        // A hand-placed row among the unpinned ones is a manual order, so MoveProfile also stops a kept sort.
+        const int to = group->MoveProfile(from, target, below);
+        if (to < 0) return;
         refresh_sort_indicator();
-        group->EmplaceProfile(row1, row2);
-        profilesTableModel->emplaceProfiles(row1, row2);
+        profilesTableModel->moveProfile(from, to, group->PinnedCount());
         Configs::dataManager->groupsRepo->Save(group);
     };
     connect(ui->profilesTableView->horizontalHeader(), &QHeaderView::sectionClicked, this, [this](int logicalIndex) {
@@ -432,7 +441,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         // The column-widths action carries its shortcut id as data, so it must never be read as a sort key.
         auto execHeaderMenu = [&](QMenu& menu) -> QAction* {
             if (!menu.isEmpty()) menu.addSeparator();
-            QAction* stopSorting = group->KeepsSorted() ? menu.addAction(tr("Stop Sorting")) : nullptr;
+            QAction* stopSorting = group->KeepsSorted() ? menu.addAction(tr("Stop sorting")) : nullptr;
             menu.addAction(ui->actionRefresh_Column_Widths);
             auto* chosen = menu.exec(header->mapToGlobal(pos));
             if (chosen != nullptr && chosen == stopSorting) {
@@ -449,7 +458,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         };
         if (columnIndex == ProfilesTableModel::ColType && Configs::dataManager->settingsRepo->show_config_security) {
             QMenu menu(this);
-            auto* sortByLabel = menu.addAction(tr("Sort By:"));
+            auto* sortByLabel = menu.addAction(tr("Sort by:"));
             sortByLabel->setEnabled(false);
 
             struct TypeSortOption { Configs::typeBy value; QString label; };
@@ -476,7 +485,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             auto* includeLabel = menu.addAction(tr("Include:"));
             includeLabel->setEnabled(false);
 
-            auto* actionShowOutIP = menu.addAction(tr("Out IP"));
+            auto* actionShowOutIP = menu.addAction(tr("Exit IP"));
             actionShowOutIP->setCheckable(true);
             actionShowOutIP->setChecked(group->test_items_to_show == Configs::testShowItems::all ||
                 group->test_items_to_show == Configs::testShowItems::ipOnly);
@@ -503,28 +512,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             connect(actionShowOutIP, &QAction::triggered, this, updateTestItemsToShow);
             connect(actionShowSpeed, &QAction::triggered, this, updateTestItemsToShow);
 
-            auto* actionShowServices = menu.addAction(tr("Services"));
-            actionShowServices->setCheckable(true);
-            actionShowServices->setChecked(group->show_service_checks);
-            connect(actionShowServices, &QAction::triggered, this, [this, group](bool checked) {
-                group->show_service_checks = checked;
-                Configs::dataManager->groupsRepo->Save(group);
-                if (group->calculated_column_width.size() > ProfilesTableModel::ColTestResult) {
-                    group->calculated_column_width[ProfilesTableModel::ColTestResult] = 0;
-                }
-                refresh_proxy_list();
-            });
-
             menu.addSeparator();
-            auto* sortByLabel = menu.addAction(tr("Sort By:"));
+            auto* sortByLabel = menu.addAction(tr("Sort by:"));
             sortByLabel->setEnabled(false);
 
             struct SortOption { int value; QString label; };
             QList<SortOption> options = {
                 { static_cast<int>(Configs::testBy::latency), tr("Latency") },
-                { static_cast<int>(Configs::testBy::dlSpeed), tr("Download Speed") },
-                { static_cast<int>(Configs::testBy::ulSpeed), tr("Upload Speed") },
-                { static_cast<int>(Configs::testBy::ipOut), tr("IP Out") }
+                { static_cast<int>(Configs::testBy::dlSpeed), tr("Download speed") },
+                { static_cast<int>(Configs::testBy::ulSpeed), tr("Upload speed") },
+                { static_cast<int>(Configs::testBy::ipOut), tr("Exit IP") }
             };
             for (const auto& opt : options) {
                 auto* act = menu.addAction(opt.label);
@@ -542,7 +539,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         }
         if (columnIndex == ProfilesTableModel::ColTraffic) {
             QMenu menu(this);
-            auto* sortByLabel = menu.addAction(tr("Sort By:"));
+            auto* sortByLabel = menu.addAction(tr("Sort by:"));
             sortByLabel->setEnabled(false);
 
             struct TrafficSortOption { int value; QString label; };
@@ -611,7 +608,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     });
     connect(filterHeader, &ProfilesTableFilterHeader::testFilterChanged, this, [this](const QString& currentText)
     {
-       countryFilterString = currentText;
+       testFilterString = currentText;
        m_filterRefreshDebounce->start();
     });
     connect(filterHeader, &ProfilesTableFilterHeader::focusTableRequested, this,
@@ -626,52 +623,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     tray = new TrayIcon(this);
     tray->setIcon(Icon::GetTrayIcon(Icon::TrayIconStatus::None));
     QApplication::setWindowIcon(Icon::GetTaskbarIcon(Icon::TrayIconStatus::None));
-    trayMenu = new QMenu();
-    trayMenu->addAction(ui->actionShow_window);
-    trayMenu->addSeparator();
-
-    trayConnectAction = new QAction(tr("Connect"), trayMenu);
-    connect(trayConnectAction, &QAction::triggered, this, [this]() {
-        if (runningSnapshot() != nullptr) profile_stop(false, false, true);
-        else profile_start();
-    });
-    trayMenu->addAction(trayConnectAction);
-    trayMenu->addSeparator();
-
-    trayMenu->addAction(ui->actionStart_with_system);
-    trayMenu->addAction(ui->actionRemember_last_proxy);
-    trayMenu->addAction(ui->actionAllow_LAN);
-    trayMenu->addSeparator();
-
-    auto *actSelectServer = new QAction(tr("Select Profile"), trayMenu);
-    connect(actSelectServer, &QAction::triggered, this, [this]() { openTraySelector(false); });
-    trayMenu->addAction(actSelectServer);
-    auto *actSelectRouting = new QAction(tr("Select Routing"), trayMenu);
-    connect(actSelectRouting, &QAction::triggered, this, [this]() { openTraySelector(true); });
-    trayMenu->addAction(actSelectRouting);
-    auto *actOtpCodes = new QAction(tr("OTP Codes"), trayMenu);
-    connect(actOtpCodes, &QAction::triggered, this, [this]() { openTrayOtpCodes(); });
-    UiMode::MarkAdvanced(actOtpCodes);
-    trayMenu->addAction(actOtpCodes);
-    // MacOS cannot reuse menus across different parents properly
-    if (getOS() == Darwin) {
-        auto* traySpmodeMenu = new QMenu(ui->menu_spmode->title(), trayMenu);
-        traySpmodeMenu->addAction(ui->menu_spmode_system_proxy);
-        traySpmodeMenu->addAction(ui->menu_spmode_vpn);
-        connect(traySpmodeMenu, &QMenu::aboutToShow, this, [=,this]() {
-            ui->menu_spmode_disabled->setChecked(!(Configs::dataManager->settingsRepo->spmode_system_proxy || Configs::dataManager->settingsRepo->spmode_vpn));
-            ui->menu_spmode_system_proxy->setChecked(Configs::dataManager->settingsRepo->spmode_system_proxy);
-            ui->menu_spmode_vpn->setChecked(Configs::dataManager->settingsRepo->spmode_vpn);
-        });
-        trayMenu->addMenu(traySpmodeMenu);
-    } else {
-        trayMenu->addMenu(ui->menu_spmode);
-    }
-    trayMenu->addSeparator();
-
-    trayMenu->addAction(ui->actionRestart_Proxy);
-    trayMenu->addAction(ui->actionRestart_Program);
-    trayMenu->addAction(ui->menu_exit);
+    setupTrayMenu();
     tray->setVisible(!Configs::dataManager->settingsRepo->disable_tray);
     tray->setContextMenu(trayMenu);
     connect(tray, &TrayIcon::activated, qApp, [=, this](QSystemTrayIcon::ActivationReason reason) {
@@ -691,9 +643,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionRestart_Program, &QAction::triggered, this, [=,this] { MW_dialog_message(MwMessage::RestartProgram, {}); });
     connect(ui->actionShow_window, &QAction::triggered, this, [=,this] { ActivateWindow(this); });
     connect(ui->actionRemember_last_proxy, &QAction::triggered, this, [=,this](bool checked) {
-        Configs::dataManager->settingsRepo->remember_enable = checked;
-        ui->actionRemember_last_proxy->setChecked(checked);
-        Configs::dataManager->settingsRepo->Save();
+        Engine::SettingsService::Update([checked](Configs::SettingsValues &values) { values.remember_enable = checked; }, {.interactive = true});
+        syncSettingsMirrors();
     });
     connect(ui->actionStart_with_system, &QAction::triggered, this, [=,this](bool checked) {
         if (QString error; !AutoRun_SetEnabled(checked, &error)) {
@@ -702,63 +653,43 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         ui->actionStart_with_system->setChecked(AutoRun_IsEnabled());
     });
     connect(ui->actionAllow_LAN, &QAction::triggered, this, [=,this](bool checked) {
-        Configs::dataManager->settingsRepo->inbound_address = checked ? "::" : "127.0.0.1";
-        ui->actionAllow_LAN->setChecked(checked);
-        MW_dialog_message(MwMessage::UpdateSettings, {});
+        if (Engine::IsBeingEdited(Engine::EditTarget::Settings)) {
+            syncSettingsMirrors();
+            MessageBoxWarning(ui->actionAllow_LAN->text(), tr("A settings window is open; close it and try again."));
+            return;
+        }
+        const QString address = checked ? QStringLiteral("::") : QStringLiteral("127.0.0.1");
+        Engine::SettingsService::Update([&address](Configs::SettingsValues &values) { values.inbound_address = address; }, {.interactive = true});
+        syncSettingsMirrors();
     });
-    connect(ui->actionAdvanced_Mode, &QAction::triggered, this, [=,this](bool checked) { setSimpleMode(!checked); });
     applyUiMode();
     connect(ui->checkBox_VPN, &QCheckBox::clicked, this, [=,this](bool checked) { connection()->setTun(checked); });
     connect(ui->checkBox_SystemProxy, &QCheckBox::clicked, this, [=,this](bool checked) { connection()->setSystemProxy(checked); });
     connect(ui->menu_spmode, &QMenu::aboutToShow, this, [=,this]() {
-        ui->menu_spmode_disabled->setChecked(!(Configs::dataManager->settingsRepo->spmode_system_proxy || Configs::dataManager->settingsRepo->spmode_vpn));
         ui->menu_spmode_system_proxy->setChecked(Configs::dataManager->settingsRepo->spmode_system_proxy);
         ui->menu_spmode_vpn->setChecked(Configs::dataManager->settingsRepo->spmode_vpn);
     });
     connect(ui->menu_spmode_system_proxy, &QAction::triggered, this, [=,this](bool checked) { connection()->setSystemProxy(checked); });
     connect(ui->menu_spmode_vpn, &QAction::triggered, this, [=,this](bool checked) { connection()->setTun(checked); });
-    connect(ui->menu_spmode_disabled, &QAction::triggered, this, [=,this]() {
-        connection()->setSystemProxy(false);
-        connection()->setTun(false);
-    });
     connect(ui->menu_qr, &QAction::triggered, this, [=,this]() { display_qr_link(false); });
 
     connect(ui->menu_server, &QMenu::aboutToShow, this, [=,this](){
-        if (auto selected = get_now_selected_list(); selected.empty())
-        {
-            ui->actionSpeedtest_Selected->setEnabled(false);
-            ui->actionUrl_Test_Selected->setEnabled(false);
-            ui->menu_resolve_selected->setEnabled(false);
-            ui->actionResolve_Selected_Out_IP->setEnabled(false);
-            ui->actionService_Check_Selected->setEnabled(false);
-        } else
-        {
-            ui->actionSpeedtest_Selected->setEnabled(true);
-            ui->actionUrl_Test_Selected->setEnabled(true);
-            ui->menu_resolve_selected->setEnabled(true);
-            ui->actionResolve_Selected_Out_IP->setEnabled(true);
-            ui->actionService_Check_Selected->setEnabled(true);
-        }
-        ui->menu_find_settings->setEnabled(get_now_selected_list().size() == 1);
-        if (tests()->isRunning()) {
-            ui->menu_server->addAction(ui->menu_stop_testing);
-        } else {
-            ui->menu_server->removeAction(ui->menu_stop_testing);
-        }
+        refresh_action_states();
+        refresh_pin_action();
     });
 
     connect(ui->menuTesting, &QMenu::aboutToShow, this, [=,this](){
         ui->actionDelete_Group->setEnabled(Configs::dataManager->groupsRepo->GetAllGroupIds().size() > 1);
-        if (tests()->isRunning()) {
-            ui->menuTesting->addAction(ui->menu_stop_testing);
-        } else {
-            ui->menuTesting->removeAction(ui->menu_stop_testing);
-        }
+        const auto group = Configs::dataManager->groupsRepo->CurrentGroup();
+        ui->menu_update_subscription->setVisible(group != nullptr && !group->url.isEmpty());
+        // The command palette emits aboutToShow without opening the menu, and a hidden action's own shortcut is dead.
+        QTimer::singleShot(0, this, [this] {
+            if (ui->menuTesting->isHidden()) ui->menu_update_subscription->setVisible(true);
+        });
     });
+    connect(ui->menuTesting, &QMenu::aboutToHide, this, [this] { ui->menu_update_subscription->setVisible(true); });
 
-    connect(ui->menuTools, &QMenu::aboutToShow, this, [=,this](){
-        ui->actionSpeedtest_Current->setEnabled(runningSnapshot() != nullptr);
-    });
+    connect(ui->menuTools, &QMenu::aboutToShow, this, &MainWindow::refresh_action_states);
 
     connect(ui->actionAdd_New_Group, &QAction::triggered, this, [=,this]{
         auto ent = Configs::dataManager->groupsRepo->NewGroup();
@@ -767,8 +698,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         dialog->deleteLater();
 
         if (ret == QDialog::Accepted) {
-            Configs::dataManager->groupsRepo->AddGroup(ent);
-            MW_dialog_message(MwMessage::GroupsChanged, {});
+            if (const auto error = Engine::GroupService::Add(ent)) MW_show_log(error->message);
         }
     });
 
@@ -778,11 +708,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         auto dialog = new DialogEditGroup(ent, this);
         connect(dialog, &QDialog::finished, this, [=,this] {
             if (dialog->result() == QDialog::Accepted) {
-                if (Configs::dataManager->groupsRepo->Save(ent)) {
-                    MW_dialog_message(MwMessage::GroupsChanged, dialog->RestartNeeded() ? QStringList{MwArg::RestartProxy} : QStringList{});
+                if (!Engine::GroupService::Save(ent, dialog->RestartNeeded())) {
                     if (dialog->RefreshNeeded()) Subscription::updater()->RefreshGroup(ent->id, nullptr, true);
                 } else {
-                    MessageBoxWarning(tr("Edit current Group"), tr("This group was deleted while you were editing it."));
+                    MessageBoxWarning(tr("Edit group"), tr("This group was deleted while you were editing it."));
                 }
             }
             dialog->deleteLater();
@@ -794,9 +723,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         if (Configs::dataManager->groupsRepo->GetAllGroupIds().size() <= 1) return;
         const auto group = Configs::dataManager->groupsRepo->CurrentGroup();
         if (group == nullptr) return;
-        if (QMessageBox::question(this, tr("Confirmation"), tr("Remove %1?").arg(group->name)) ==
+        if (QMessageBox::question(this, tr("Confirmation"), tr("Remove %1?").arg(group->name) + HopReferenceWarning(group->Profiles(), group->id)) ==
             QMessageBox::StandardButton::Yes) {
-            delete_group(group->id, tr("Delete current Group"));
+            delete_group(group->id, tr("Delete group"));
         }
     });
 
@@ -814,100 +743,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         show_group(ent->id);
     });
 
-    auto* actionAdblock = new QAction(ui->menuRouting_Menu);
-    actionAdblock->setText(tr("Enable AdBlock"));
-    actionAdblock->setCheckable(true);
-    connect(actionAdblock, &QAction::triggered, this, [=,this](bool checked) {
-        Configs::dataManager->settingsRepo->adblock_enable = checked;
-        actionAdblock->setChecked(checked);
-        Configs::dataManager->settingsRepo->Save();
-        connection()->restartStartedProfile();
-    });
-
-    auto* actionWarp = new QAction(ui->menuRouting_Menu);
-    actionWarp->setText(tr("Enable Warp"));
-    actionWarp->setCheckable(true);
-    connect(actionWarp, &QAction::triggered, this, [=,this](bool checked) {
-        Configs::dataManager->settingsRepo->enable_warp = checked;
-        actionWarp->setChecked(checked);
-        Configs::dataManager->settingsRepo->Save();
-        connection()->restartStartedProfile();
-    });
-
-    auto* profilesMenu = new QMenu(QObject::tr("Download Profiles"), ui->menuRouting_Menu);
-    for (const QString &country : QStringList{"China", "Iran", "Russia"})
-    {
-        auto* action = new QAction(profilesMenu);
-        action->setText(country);
-        connect(action, &QAction::triggered, this, [=,this]()
-        {
-            auto resp = NetworkRequestHelper::HttpGet(Configs::get_jsdelivr_link("https://raw.githubusercontent.com/throneproj/routeprofiles/profile/Profile_" + country));
-            if (!resp.error.isEmpty()) {
-                runOnUiThread([=] {
-                    MessageBoxWarning(QObject::tr("Download Profiles"), QObject::tr("Requesting profile error: %1").arg(resp.error + "\n" + resp.data));
-                });
-                return;
-            }
-            handle_add_remote_routes(resp.data);
-        });
-        profilesMenu->addAction(action);
-    }
-
-    ui->menuRouting_Menu->addAction(ui->menu_routing_settings);
-    ui->menuRouting_Menu->addAction(actionAdblock);
-    ui->menuRouting_Menu->addAction(actionWarp);
-    ui->menuRouting_Menu->addMenu(profilesMenu);
-    ui->menuRouting_Menu->addAction(ui->actionUpdate_Rule_Sets);
-    auto* actionRuleTester = new QAction(tr("Rule Tester…"), ui->menuRouting_Menu);
-    connect(actionRuleTester, &QAction::triggered, this, [this] {
-        const auto selected = get_now_selected_list();
-        const int preferred = selected.size() == 1 ? selected.first() : -1;
-        if (m_ruleTesterDialog == nullptr) {
-            m_ruleTesterDialog = new DialogRuleTester(connection(), preferred, this);
-            m_ruleTesterDialog->setAttribute(Qt::WA_DeleteOnClose);
-        } else {
-            m_ruleTesterDialog->setPreferredProfile(preferred);
-        }
-        ActivateWindow(m_ruleTesterDialog);
-    });
-    ui->menuRouting_Menu->addAction(actionRuleTester);
-    ui->menuRouting_Menu->addSeparator();
-
-    connect(ui->menuRouting_Menu, &QMenu::aboutToShow, this, [=,this]()
-    {
-        actionAdblock->setChecked(Configs::dataManager->settingsRepo->adblock_enable);
-        actionWarp->setChecked(Configs::dataManager->settingsRepo->enable_warp);
-        ui->actionUpdate_Rule_Sets->setEnabled(runningSnapshot() != nullptr && !Engine::AssetUpdates::RuleSetUpdateRunning());
-
-        // Kept across shows unless the profiles' ids or names changed: the command palette holds on to these actions.
-        QList<QAction*> routeActions;
-        for (auto* action : ui->menuRouting_Menu->actions()) {
-            if (action->property("routeProfileId").isValid()) routeActions.append(action);
-        }
-        const auto routes = Configs::dataManager->routesRepo->GetAllRouteProfiles();
-        bool changed = routes.size() != routeActions.size();
-        for (int i = 0; !changed && i < routes.size(); ++i) {
-            changed = routeActions[i]->data().toInt() != routes[i]->id || routeActions[i]->text() != routes[i]->name;
-        }
-        if (changed) {
-            for (auto* action : routeActions) delete action;
-            routeActions.clear();
-            for (const auto& route : routes)
-            {
-                auto* action = new QAction(ui->menuRouting_Menu);
-                action->setText(route->name);
-                action->setData(route->id);
-                action->setProperty("routeProfileId", route->id);
-                action->setCheckable(true);
-                connect(action, &QAction::triggered, this, [=,this]() { connection()->chooseRoute(action->data().toInt()); });
-                ui->menuRouting_Menu->addAction(action);
-                routeActions.append(action);
-            }
-        }
-        for (auto* action : routeActions) {
-            action->setChecked(Configs::dataManager->settingsRepo->current_route_id == action->data().toInt());
-        }
-    });
+    setupRoutingMenu();
     connect(ui->actionClear_Test_Result, &QAction::triggered, this, [=, this]() { clear_test_results(get_now_selected_list()); });
     connect(ui->actionUrl_Test_Selected, &QAction::triggered, this, [=,this]() {
         tests()->runUrlTests(get_now_selected_list());
@@ -938,11 +774,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     });
     const auto startServiceChecks = [this](const QList<int>& ids) {
         if (ids.size() > Engine::TestRunner::kMaxServiceCheckProfiles) {
-            MessageBoxWarning(tr("Service Check"), tr("A service check can test up to 100 profiles at a time. Select fewer profiles."));
+            MessageBoxWarning(tr("Service check"), tr("A service check can test up to 100 profiles at a time. Select fewer profiles."));
             return;
         }
         if (ids.size() > 20
-            && QMessageBox::question(this, tr("Service Check"),
+            && QMessageBox::question(this, tr("Service check"),
                                      tr("This checks %1 profiles. Each one sends about 20 requests to the checked services. Continue?").arg(ids.size()))
                    != QMessageBox::StandardButton::Yes) {
             return;
@@ -956,6 +792,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         if (const auto group = Configs::dataManager->groupsRepo->CurrentGroup()) startServiceChecks(group->Profiles());
     });
     ui->menu_stop_testing->setEnabled(false);
+    // Kept on the window so Ctrl+. works while no menu holds it; the menus add it only to show it.
+    addAction(ui->menu_stop_testing);
     connect(ui->menu_stop_testing, &QAction::triggered, this, [this]() {
         ui->menu_stop_testing->setEnabled(false);
         dataViewHtmlGenerator_.markTestsStopping();
@@ -1057,6 +895,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             ui->menu_stop_testing->trigger();
         }
     });
+
+    refresh_action_states();
 }
 
 MainWindow::~MainWindow() {
@@ -1113,7 +953,7 @@ void MainWindow::setupTrafficGraph() {
         m_trafficGraphSaveDebounce->start();
     });
 
-    m_trafficStatsChartAction = new QAction(tr("Open Traffic Statistics…"), this);
+    m_trafficStatsChartAction = new QAction(tr("Open Traffic Statistics"), this);
     connect(m_trafficStatsChartAction, &QAction::triggered, this, [this] { ui->actionTraffic_Stats->trigger(); });
     trafficChart->addMenuAction(m_trafficStatsChartAction);
     refresh_traffic_graph_settings();

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QDialog>
+#include "include/database/SettingsValues.h"
 #include "include/engine/EditLocks.h"
 #include "include/global/Configs.hpp"
 #include "ui_dialog_integration.h"
@@ -41,6 +42,10 @@ private:
 
     void copyForScripts();
 
+    void setupCoreApisTab();
+
+    void bindCoreApiValidation();
+
     struct HotkeyEdit {
         QtExtKeySequenceEdit *edit = nullptr;
         QString label;
@@ -52,5 +57,6 @@ private:
     Validation::Form *form = nullptr;
     QString savedApiKey;
     Engine::EditLock settingsLock{Engine::EditTarget::Settings};
+    Configs::SettingsValues snapshot_;
     Ui::DialogIntegration *ui;
 };

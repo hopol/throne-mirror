@@ -6,6 +6,7 @@
 #include <QStringList>
 
 #include <atomic>
+#include <memory>
 
 #include "ui_RuntimeStatsWidget.h"
 
@@ -20,6 +21,7 @@ QT_END_NAMESPACE
 
 class QTimer;
 class LiveChart;
+class ServiceIconStrip;
 
 class RuntimeStatsWidget : public QWidget {
     Q_OBJECT
@@ -34,6 +36,7 @@ protected:
 
 private:
     void refreshLive();
+    void refreshServices();
     void probeEgress();
 
     void applyEndpoints(const QList<Stats::VpnEndpointView>& views);
@@ -46,6 +49,7 @@ private:
     QTimer* timer_ = nullptr;
     LiveChart* cpuChart_ = nullptr;
     LiveChart* ramChart_ = nullptr;
+    ServiceIconStrip* serviceStrip_ = nullptr;
     Sys::ProcessMetrics metrics_;
     std::atomic<bool> probing_{false};
     std::atomic<bool> connBusy_{false};
@@ -58,6 +62,8 @@ private:
     QString egressLookup_;
 
     QPointer<DialogEndpointDetails> details_;
+    // Shared with the check's onFinished, which runs on a test thread and may outlive the widget.
+    std::shared_ptr<std::atomic<bool>> serviceChecking_ = std::make_shared<std::atomic<bool>>(false);
     QList<Stats::VpnEndpointView> endpointViews_;
     QStringList endpointTags_;
 };

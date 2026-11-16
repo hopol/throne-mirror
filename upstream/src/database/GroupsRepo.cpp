@@ -44,7 +44,7 @@ namespace Configs {
                 sort_descending INTEGER NOT NULL DEFAULT 0,
                 route_id INTEGER NOT NULL DEFAULT -1,
                 import_sub_route INTEGER NOT NULL DEFAULT 0,
-                show_service_checks INTEGER NOT NULL DEFAULT 1,
+                pinned_json TEXT NOT NULL DEFAULT '[]',
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
                 updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             )
@@ -66,8 +66,8 @@ namespace Configs {
             db.exec("ALTER TABLE groups ADD COLUMN route_id INTEGER NOT NULL DEFAULT -1");
         if (!groupsColumnExists("import_sub_route"))
             db.exec("ALTER TABLE groups ADD COLUMN import_sub_route INTEGER NOT NULL DEFAULT 0");
-        if (!groupsColumnExists("show_service_checks"))
-            db.exec("ALTER TABLE groups ADD COLUMN show_service_checks INTEGER NOT NULL DEFAULT 1");
+        if (!groupsColumnExists("pinned_json"))
+            db.exec("ALTER TABLE groups ADD COLUMN pinned_json TEXT NOT NULL DEFAULT '[]'");
 
         db.exec(R"(
             CREATE TABLE IF NOT EXISTS groups_order (
@@ -138,6 +138,7 @@ namespace Configs {
         json["import_sub_route"] = group->import_sub_route;
         json["column_width"] = QListInt2QJsonArray(group->column_width);
         json["profiles"] = QListInt2QJsonArray(group->profiles);
+        json["pinned"] = QListInt2QJsonArray(group->pinned);
         json["scroll_last_profile"] = group->scroll_last_profile;
         json["test_sort_by"] = static_cast<int>(group->test_sort_by);
         json["traffic_sort_by"] = static_cast<int>(group->traffic_sort_by);
@@ -145,7 +146,6 @@ namespace Configs {
         json["sort_method"] = static_cast<int>(group->sort.method);
         json["sort_descending"] = group->sort.descending;
         json["test_items_to_show"] = static_cast<int>(group->test_items_to_show);
-        json["show_service_checks"] = group->show_service_checks;
 
         return json;
     }
@@ -172,6 +172,7 @@ namespace Configs {
         group->import_sub_route = json["import_sub_route"].toBool();
         group->column_width = QJsonArray2QListInt(json["column_width"].toArray());
         group->profiles = QJsonArray2QListInt(json["profiles"].toArray());
+        group->pinned = QJsonArray2QListInt(json["pinned"].toArray());
         group->scroll_last_profile = json["scroll_last_profile"].toInt(-1);
         group->test_sort_by = static_cast<testBy>(json["test_sort_by"].toInt(0));
         group->traffic_sort_by = static_cast<trafficBy>(json["traffic_sort_by"].toInt(0));
@@ -181,7 +182,6 @@ namespace Configs {
             group->sort.descending = json["sort_descending"].toBool();
         }
         group->test_items_to_show = static_cast<testShowItems>(json["test_items_to_show"].toInt(0));
-        group->show_service_checks = json["show_service_checks"].toBool(true);
 
         return group;
     }
@@ -198,6 +198,7 @@ namespace Configs {
         QString subOptionsJson = QString::fromUtf8(QJsonDocument(group->sub_options.ToJson()).toJson(QJsonDocument::Compact));
         QString subMetadataJson = QString::fromUtf8(QJsonDocument(group->sub_info.toJson()).toJson(QJsonDocument::Compact));
         QString endpointJson = QString::fromUtf8(QJsonDocument(group->endpoint.ToJson()).toJson(QJsonDocument::Compact));
+        QString pinnedJson = QString::fromUtf8(QJsonDocument(QListInt2QJsonArray(group->pinned)).toJson(QJsonDocument::Compact));
 
         db.exec(R"(
             INSERT INTO groups
@@ -205,7 +206,7 @@ namespace Configs {
              front_proxy_id, landing_proxy_id,
              column_width_json, profiles_json, scroll_last_profile, test_sort_by, traffic_sort_by, test_items_to_show,
              type_sort_by, sub_options_json, sub_metadata_json, endpoint_json, sort_method, sort_descending,
-             route_id, import_sub_route, show_service_checks)
+             route_id, import_sub_route, pinned_json)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 archive = excluded.archive, skip_auto_update = excluded.skip_auto_update,
@@ -219,7 +220,7 @@ namespace Configs {
                 sub_metadata_json = excluded.sub_metadata_json, endpoint_json = excluded.endpoint_json,
                 sort_method = excluded.sort_method, sort_descending = excluded.sort_descending,
                 route_id = excluded.route_id, import_sub_route = excluded.import_sub_route,
-                show_service_checks = excluded.show_service_checks,
+                pinned_json = excluded.pinned_json,
                 updated_at = strftime('%s', 'now')
         )",
             id,
@@ -246,7 +247,7 @@ namespace Configs {
             group->sort.descending ? 1 : 0,
             group->route_id,
             group->import_sub_route ? 1 : 0,
-            group->show_service_checks ? 1 : 0
+            pinnedJson.toStdString()
         );
     }
 
@@ -256,7 +257,7 @@ namespace Configs {
                    front_proxy_id, landing_proxy_id,
                    column_width_json, profiles_json, scroll_last_profile, test_sort_by, traffic_sort_by, test_items_to_show,
                    type_sort_by, sub_options_json, sub_metadata_json, endpoint_json, sort_method, sort_descending,
-                   route_id, import_sub_route, show_service_checks
+                   route_id, import_sub_route, pinned_json
             FROM groups WHERE id = ?
         )", id);
         if (!query || !query->executeStep()) {
@@ -312,7 +313,10 @@ namespace Configs {
         json["sort_descending"] = query->getColumn(21).getInt() != 0;
         json["route_id"] = query->getColumn(22).getInt();
         json["import_sub_route"] = query->getColumn(23).getInt() != 0;
-        json["show_service_checks"] = query->getColumn(24).getInt() != 0;
+        if (const auto pinnedDoc = QJsonDocument::fromJson(QByteArray(query->getColumn(24).getText()));
+            pinnedDoc.isArray()) {
+            json["pinned"] = pinnedDoc.array();
+        }
 
         auto group = groupFromJson(json);
         // Refreshes could map several identical servers onto one id, leaving it in the persisted list once per server (#1775).
@@ -324,11 +328,12 @@ namespace Configs {
             seen.insert(pid);
             unique.append(pid);
         }
-        if (unique.size() != group->profiles.size()) {
-            group->profiles = std::move(unique);
-            // The caller (GetGroup) already holds the mutex, so write straight through.
-            saveToDatabase(group.get(), group->id);
-        }
+        bool repaired = unique.size() != group->profiles.size();
+        if (repaired) group->profiles = std::move(unique);
+        // A save between a wholesale rewrite of the order and its NormalizePins leaves the pins apart from the head.
+        if (group->NormalizePins()) repaired = true;
+        // The caller (GetGroup) already holds the mutex, so write straight through.
+        if (repaired) saveToDatabase(group.get(), group->id);
         return group;
     }
 
@@ -380,10 +385,10 @@ namespace Configs {
     bool GroupsRepo::DeleteGroup(int id) {
         const auto group = GetGroup(id);
         const QList<int> listed = group != nullptr ? group->Profiles() : QList<int>{};
+        QSet<int> profileIds(listed.cbegin(), listed.cend());
         // Runs under ProfilesRepo's lock, so no profile Save lands between the delete and the tombstones.
-        return dataManager->profilesRepo->DeleteAndForget([&](QList<int>& deletedIds) {
+        const bool deleted = dataManager->profilesRepo->DeleteAndForget([&](QList<int>& deletedIds) {
             QMutexLocker locker(&mutex);
-            QSet<int> profileIds(listed.cbegin(), listed.cend());
             const bool ok = db.transaction("GroupsRepo::DeleteGroup", [&] {
                 {
                     const auto owned = db.queryThrow("SELECT id FROM profiles WHERE gid = ?", id);
@@ -403,6 +408,8 @@ namespace Configs {
             ++revision;
             return true;
         });
+        if (deleted) ClearHopReferences(profileIds);
+        return deleted;
     }
 
     QList<int> GroupsRepo::GetAllGroupIds() const {
@@ -472,6 +479,36 @@ namespace Configs {
         }
         LOG_DEBUG(QString("Group %1 was deleted; not saving it").arg(group->id));
         return false;
+    }
+
+    QList<HopReference> GroupsRepo::HopReferences(const QSet<int>& profileIds, int exceptGroup) const {
+        QList<HopReference> refs;
+        if (profileIds.isEmpty()) return refs;
+        for (const int gid : GetAllGroupIds()) {
+            if (gid == exceptGroup) continue;
+            const auto group = GetGroup(gid);
+            if (group == nullptr) continue;
+            if (profileIds.contains(group->front_proxy_id)) refs.append({gid, group->name, HopRole::Front, group->front_proxy_id});
+            if (profileIds.contains(group->landing_proxy_id)) refs.append({gid, group->name, HopRole::Landing, group->landing_proxy_id});
+        }
+        return refs;
+    }
+
+    QList<HopReference> GroupsRepo::ClearHopReferences(const QSet<int>& deletedProfileIds) {
+        QList<HopReference> cleared;
+        for (const auto& ref : HopReferences(deletedProfileIds)) {
+            const auto group = GetGroup(ref.groupId);
+            if (group == nullptr) continue;
+            int& proxyId = ref.role == HopRole::Front ? group->front_proxy_id : group->landing_proxy_id;
+            if (proxyId != ref.profileId) continue;
+            proxyId = -1;
+            if (!Save(group)) continue;
+            MW_show_log(ref.role == HopRole::Front
+                            ? QStringLiteral("[Groups] %1: front proxy removed (its profile was deleted)").arg(ref.groupName)
+                            : QStringLiteral("[Groups] %1: landing proxy removed (its profile was deleted)").arg(ref.groupName));
+            cleared << ref;
+        }
+        return cleared;
     }
 
     namespace {

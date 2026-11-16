@@ -10,8 +10,10 @@
 #include "include/database/GroupsRepo.h"
 #include "include/database/ProfilesRepo.h"
 #include "include/engine/EngineEvents.h"
+#include "include/engine/Lifecycle.h"
 #include "include/global/HTTPRequestHelper.hpp"
 #include "include/global/Notice.hpp"
+#include "include/global/RunningProfiles.hpp"
 #include "include/global/Utils.hpp"
 
 #include <QCoreApplication>
@@ -117,17 +119,18 @@ namespace Subscription {
             QList<int> kept;
             // The running profile this delete stopped (allow_stopping_active_profile).
             std::shared_ptr<Configs::Profile> stopped;
+            QList<Configs::HopReference> clearedHops;
         };
 
         DeleteOutcome deleteProfiles(QList<int> ids) {
             DeleteOutcome outcome;
             const QSet<int> requested(ids.begin(), ids.end());
             const auto &settings = Configs::dataManager->settingsRepo;
-            const int startedId = settings->started_id;
+            const int startedId = Engine::Lifecycle::ResumeTargetId();
             const auto running = settings->allow_stopping_active_profile && requested.contains(startedId)
                                      ? Configs::dataManager->profilesRepo->GetProfile(startedId)
                                      : nullptr;
-            outcome.ok = Configs::dataManager->profilesRepo->BatchDeleteProfiles(ids, settings->allow_stopping_active_profile, false);
+            outcome.ok = Configs::dataManager->profilesRepo->BatchDeleteProfiles(ids, settings->allow_stopping_active_profile, false, &outcome.clearedHops);
             const QSet<int> deleted(ids.begin(), ids.end());
             outcome.deleted = std::move(ids);
             for (int id : requested) {
@@ -155,6 +158,21 @@ namespace Subscription {
             Engine::EngineEvents::SubscriptionReplacedRunning(matches.first());
         }
 
+        void reconnectUpdated(int id) {
+            const auto &settings = Configs::dataManager->settingsRepo;
+            const auto ent = Configs::dataManager->profilesRepo->GetProfile(id);
+            if (ent == nullptr || Engine::Lifecycle::ResumeTargetId() != id || !Configs::RunningUsesProfile(id)) return;
+            const auto display = ent->outbound->DisplayTypeAndName();
+            if (!settings->allow_stopping_active_profile) {
+                MW_show_log(QObject::tr("%1 was changed by the update while running; the change applies on its next start.").arg(display));
+                return;
+            }
+            MW_show_log(QObject::tr("%1 was changed by the update; reconnecting with its new settings.").arg(display));
+            // The replaced-running event only starts from idle, so stop first, as a delete of the running profile would.
+            Engine::Lifecycle::StopRunningProfile(false, true, false, false);
+            Engine::EngineEvents::SubscriptionReplacedRunning(id);
+        }
+
         // Inserts in chunks; only per-profile digests survive a flush.
         class ImportSink {
         public:
@@ -175,6 +193,7 @@ namespace Subscription {
                         return;
                     }
                     if (!entry.contentKnown) entry.keys.identity = identityKeyOf(*ent);
+                    entry.name = ent->outbound->name;
                 }
                 entryIndex.append(entries.size());
                 entries.append(std::move(entry));
@@ -346,6 +365,15 @@ namespace Subscription {
             return result;
         }
 
+        QString hopNotice(const QList<Configs::HopReference> &cleared) {
+            if (cleared.isEmpty()) return {};
+            QString text = "\n" + QObject::tr("These groups used a deleted profile as their front or landing proxy. It was removed from them, so they connect without it:");
+            for (const auto &ref : cleared) {
+                text += "\n" + (ref.role == Configs::HopRole::Front ? QObject::tr("%1 (front proxy)") : QObject::tr("%1 (landing proxy)")).arg(ref.groupName);
+            }
+            return text;
+        }
+
         QString groupLabel(int gid) {
             const auto group = Configs::dataManager->groupsRepo->GetGroup(gid);
             return group == nullptr ? Int2String(gid) : group->name;
@@ -483,6 +511,7 @@ namespace Subscription {
             }
             report += sections;
             if (!outcome.kept.isEmpty()) report += "\n" + QObject::tr("The running profile was kept.");
+            report += hopNotice(outcome.clearedHops);
             return outcome;
         }
 
@@ -504,6 +533,7 @@ namespace Subscription {
                     deleted = outcome.deleted;
                     report += "\n" + QObject::tr("Removed %1 unavailable profiles:").arg(names.size()) + "\n" + notice(names, "[-]", "removed");
                     if (!outcome.kept.isEmpty()) report += "\n" + QObject::tr("The running profile was kept.");
+                    report += hopNotice(outcome.clearedHops);
                 }
             }
             if (options.sort_by_latency) {
@@ -563,6 +593,7 @@ namespace Subscription {
                 for (const auto &[key, country] : refusedVerdicts) verdicts.insert(key, country);
                 report += "\n" + QObject::tr("Removed %1 profiles outside the country rules:").arg(refusedNames.size()) + "\n" + notice(refusedNames, "[-]", "removed");
                 if (!deleted.kept.isEmpty()) report += "\n" + QObject::tr("The running profile was kept.");
+                report += hopNotice(deleted.clearedHops);
             }
             Configs::dataManager->groupsRepo->SetCountryVerdicts(group->id, verdicts);
             return outcome;
@@ -571,14 +602,18 @@ namespace Subscription {
 
     AutoUpdatePlan ResolveAutoUpdate(const Configs::Group &group) {
         const auto &settings = Configs::dataManager->settingsRepo;
-        if (settings->sub_auto_update < 30 || group.url.isEmpty() || group.archive || group.skip_auto_update) return {};
+        if (group.url.isEmpty() || group.archive || group.skip_auto_update) return {};
         const auto &options = group.sub_options;
-        if (options.respect_server_interval.value_or(settings->sub_respect_server_interval) && group.sub_info.server_interval > 0) {
+        // A group's own choices stand alone; inherited ones follow the global switch.
+        const bool globalOn = settings->sub_auto_update >= 30;
+        if (options.respect_server_interval.value_or(globalOn && settings->sub_respect_server_interval) &&
+            group.sub_info.server_interval > 0) {
             return {static_cast<qint64>(group.sub_info.server_interval) * 3600, AutoUpdatePlan::Source::server};
         }
         if (options.update_interval > 0) {
             return {static_cast<qint64>(std::max(options.update_interval, 30)) * 60, AutoUpdatePlan::Source::group};
         }
+        if (!globalOn) return {};
         return {static_cast<qint64>(settings->sub_auto_update) * 60, AutoUpdatePlan::Source::global};
     }
 
@@ -1165,8 +1200,10 @@ namespace Subscription {
         bool deleteFailed = false;
         bool cleared = false;
         std::shared_ptr<Configs::Profile> stoppedRunning;
+        int updatedRunning = -1;
+        QList<Configs::HopReference> clearedHops;
         if (settings->sub_clear) {
-            MW_show_log(QObject::tr("Clearing servers..."));
+            MW_show_log(QObject::tr("Clearing profiles..."));
             auto doomed = members();
             if (options.keep_working) {
                 QSet<int> working;
@@ -1185,6 +1222,7 @@ namespace Subscription {
             }
             disturbed = outcome.deleted;
             stoppedRunning = outcome.stopped;
+            clearedHops = outcome.clearedHops;
             result.removed = static_cast<int>(outcome.deleted.size());
             // A survivor still belongs to the subscription: fall through to the diff.
             cleared = members().isEmpty();
@@ -1194,7 +1232,7 @@ namespace Subscription {
         QSet<int> working;
         if (!cleared) {
             forEachProfile(members(), [&](const std::shared_ptr<Configs::Profile> &ent) {
-                old.append({ent->id, {contentKeyOf(*ent), identityKeyOf(*ent)}, ent->outbound->DisplayTypeAndName()});
+                old.append({ent->id, {contentKeyOf(*ent), identityKeyOf(*ent)}, ent->outbound->DisplayTypeAndName(), ent->outbound->name});
                 if (options.keep_working && ent->IsWorking() && filter.judge(*ent, ent->test_country) == ImportFilter::Verdict::Keep) {
                     working.insert(ent->id);
                 }
@@ -1241,7 +1279,7 @@ namespace Subscription {
             const auto plan = Reconcile(old, sink.entries, index);
             result.added = static_cast<int>(plan.added.size());
             result.updated = static_cast<int>(plan.updates.size());
-            for (const auto &[oldId, newId] : plan.updates) {
+            for (const auto &[oldId, newId, byName] : plan.updates) {
                 auto oldEnt = profilesRepo->GetProfile(oldId);
                 const auto newEnt = profilesRepo->GetProfile(newId);
                 if (oldEnt != nullptr && newEnt != nullptr) {
@@ -1249,6 +1287,13 @@ namespace Subscription {
                     // Still stamped with the temporary row's id; VPN credential overrides are keyed by it.
                     oldEnt->outbound->profile_id = oldId;
                     oldEnt->name = oldEnt->outbound->name;
+                    // Possibly another server: tested like the arrival, not by the old results.
+                    if (byName) {
+                        oldEnt->type = newEnt->type;
+                        oldEnt->ClearTestResults();
+                        oldEnt->test_country = newEnt->test_country;
+                        if (oldId == Engine::Lifecycle::ResumeTargetId()) updatedRunning = oldId;
+                    }
                     profilesRepo->Save(oldEnt);
                 }
                 disturbed << oldId;
@@ -1272,6 +1317,7 @@ namespace Subscription {
             }
             disturbed << outcome.deleted;
             if (outcome.stopped != nullptr) stoppedRunning = outcome.stopped;
+            clearedHops << outcome.clearedHops;
             // stale also lists the fresh rows that only carried an update into an old id.
             const QSet<int> deletedIds(outcome.deleted.begin(), outcome.deleted.end());
             for (const auto &entry : old) {
@@ -1300,6 +1346,8 @@ namespace Subscription {
                 if (!restore(id)) continue;
                 if (const auto ent = profilesRepo->GetProfile(id); ent != nullptr) workingNames << ent->outbound->DisplayTypeAndName();
             }
+            // plan.order knows nothing of pins: surviving pinned profiles return to the head, deleted ones drop out.
+            group->NormalizePins();
             if (!outcome.kept.isEmpty() || !keptWorking.isEmpty()) groupsRepo->Save(group);
 
             auto deletedNames = plan.deleted;
@@ -1328,6 +1376,7 @@ namespace Subscription {
                 change_text = QObject::tr("Nothing");
             }
         }
+        change_text += hopNotice(clearedHops);
         if (filteredOut > 0) change_text += "\n" + QObject::tr("Filtered out %1 profiles.").arg(filteredOut);
 
         const auto flagged = removeFlagged(members(), options, change_text);
@@ -1380,6 +1429,7 @@ namespace Subscription {
             ShowImportReport(reportTitle(surface, group->name), report);
         }
         if (stoppedRunning != nullptr) reconnectSuccessor(members(), stoppedRunning);
+        else if (updatedRunning >= 0) reconnectUpdated(updatedRunning);
         // Auto selectors resolve members from the group at build time, so a refresh can invalidate an untouched one.
         Engine::EngineEvents::SubscriptionGroupChanged(group->id, disturbed);
         Engine::EngineEvents::SubscriptionFinished(-1, true);

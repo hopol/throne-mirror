@@ -7,6 +7,7 @@
 #include "include/database/DatabaseManager.h"
 #include "include/engine/EditLocks.h"
 #include "include/engine/ThreadCheck.h"
+#include "include/engine/services/SettingsService.h"
 #include "include/global/Utils.hpp"
 
 namespace Engine::WarpService {
@@ -69,7 +70,7 @@ namespace Engine::WarpService {
         if (change.mode) {
             if (auto refused = warpServiceCheckMode(*change.mode)) return refused;
         }
-        auto &settings = Configs::dataManager->settingsRepo;
+        const auto &settings = Configs::dataManager->settingsRepo;
         const bool wasEnabled = settings->enable_warp;
         const bool enabled = change.enabled.value_or(wasEnabled);
         const QString mode = change.mode.value_or(settings->warp_mode);
@@ -83,11 +84,18 @@ namespace Engine::WarpService {
         if (beforeWrite) {
             if (auto refused = beforeWrite()) return refused;
         }
+        const bool torWas = settings->enable_tor;
+        const auto refused = SettingsService::Update([enabled, &mode](Configs::SettingsValues &values) {
+            values.enable_warp = enabled;
+            if (enabled) values.enable_tor = false;
+            values.warp_mode = mode;
+        });
+        if (refused) return refused;
         result->changed = true;
-        settings->enable_warp = enabled;
-        settings->warp_mode = mode;
-        settings->Save();
-        result->restartNeeded = wasEnabled || enabled;
+        // Tor outranks WARP, so WARP changes under a Tor that stays on change nothing.
+        result->restartNeeded = torWas ? enabled : wasEnabled || enabled;
+        result->torTurnedOff = torWas && enabled;
+        if (result->torTurnedOff) MW_show_log(QStringLiteral("[WARP] Tor turned off: WARP and Tor cannot run together"));
         return std::nullopt;
     }
 
@@ -129,7 +137,7 @@ namespace Engine::WarpService {
                     result.error = refused;
                 } else {
                     warpServiceStore(mode, *identity, packets);
-                    result.restartNeeded = Configs::dataManager->settingsRepo->enable_warp;
+                    result.restartNeeded = Configs::dataManager->settingsRepo->enable_warp && !Configs::dataManager->settingsRepo->enable_tor;
                 }
                 done(result);
             });
